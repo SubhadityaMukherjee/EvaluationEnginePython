@@ -2,7 +2,7 @@ import xmltodict
 import requests
 from tempfile import NamedTemporaryFile
 from typing import Literal
-from features.models import DatasetDownloadInfo
+from src.features.models import DatasetDownloadInfo
 
 
 def download_and_parse(url: str) -> dict:
