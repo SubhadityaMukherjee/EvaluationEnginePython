@@ -5,7 +5,9 @@ from src.features import (
     feature_to_oml_dict,
     features_to_xml,
     load_arff_features,
+    load_arff_qualities,
     parse_features_xml,
+    qualities_to_xml,
 )
 from src.helpers import (
     download_and_parse,
@@ -20,6 +22,12 @@ from src.helpers import (
 # Server features - only for sanity check
 features_url = lambda data_id: f"https://www.openml.org/api/v1/data/features/{data_id}"
 server_features = lambda data_id: download_and_parse(features_url(data_id))
+
+# Server qualities - names differ from local (Weka vs pymfe), so only eyeball-comparable
+qualities_url = (
+    lambda data_id: f"https://www.openml.org/api/v1/data/qualities/{data_id}"
+)
+server_qualities = lambda data_id: download_and_parse(qualities_url(data_id))
 
 
 # Get diffs between versions
@@ -67,3 +75,10 @@ if __name__ == "__main__":
         server=server_features(data_id=data_id),
         local=arff_local_features,
     )
+
+    # Qualities: server uses Weka names, local uses pymfe names - not directly comparable.
+    qual_data_id = 200
+    qual_download_info = get_data_and_meta_information_from_did(qual_data_id)
+    local_qualities = load_arff_qualities(qual_download_info, did=qual_data_id)
+    print("SERVER QUALITIES:", server_qualities(qual_data_id))
+    print("LOCAL QUALITIES:", qualities_to_xml(local_qualities))

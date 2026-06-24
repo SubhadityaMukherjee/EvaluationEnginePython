@@ -1,12 +1,17 @@
+import math
 from collections import Counter
 
 import arff
 import numpy as np
+import pandas as pd
+from pymfe.mfe import MFE
 
 from .models import (
     DataFeature,
+    DataQuality,
     DatasetDownloadInfo,
     Feature,
+    Quality,
     _NUMERIC_TYPES,
 )
 
@@ -143,4 +148,137 @@ def load_arff_features(
         did=did,
         evaluation_engine_id=evaluation_engine_id,
         features=features,
+    )
+
+
+# ============================================================================
+# Qualities (metafeatures)
+# ============================================================================
+
+
+_DEFAULT_MFE_GROUPS = ("general", "statistical", "info-theory")
+
+
+def _build_xy(
+    attributes,
+    rows,
+    target_names: set[str],
+) -> tuple[np.ndarray, np.ndarray]:
+    attr_names = [a[0] for a in attributes]
+
+    target_idxs = [i for i, n in enumerate(attr_names) if n in target_names]
+
+    if not target_idxs:
+        raise ValueError(
+            "default_target_attribute not found in ARFF attributes",
+        )
+
+    target_idx = target_idxs[0]
+
+    arr = np.array(rows, dtype=object)
+
+    feature_idxs = [
+        i for i in range(len(attr_names)) if i != target_idx
+    ]
+
+    X_full = pd.DataFrame(
+        {attr_names[i]: arr[:, i] for i in feature_idxs}
+    )
+    y_raw = arr[:, target_idx]
+
+    y_obj = np.asarray(y_raw, dtype=object)
+    if y_obj.dtype == object:
+        y = pd.Categorical(y_raw).codes.astype(float)
+    else:
+        y = y_raw.astype(float)
+
+    string_cols = X_full.select_dtypes(
+        include=["object", "string"],
+    ).columns
+    multi_word_cols = [
+        c
+        for c in string_cols
+        if X_full[c]
+        .dropna()
+        .astype(str)
+        .str.contains(r"\s")
+        .any()
+    ]
+    X_clean = X_full.drop(columns=multi_word_cols)
+
+    for col in X_clean.select_dtypes(
+        include=["object", "string"],
+    ).columns:
+        X_clean[col] = pd.Categorical(
+            X_full[col],
+        ).codes.astype(float)
+
+    return X_clean.to_numpy(dtype=float), y
+
+
+def load_arff_qualities(
+    dataset: DatasetDownloadInfo,
+    *,
+    did: int | None = None,
+    evaluation_engine_id: int | None = None,
+    groups: tuple[str, ...] = _DEFAULT_MFE_GROUPS,
+    random_state: int = 42,
+    timeout: int = 30,
+) -> DataQuality:
+    try:
+        with open(
+            dataset.file_path,
+            "r",
+            encoding="utf-8",
+            errors="replace",
+        ) as f:
+            data = arff.load(f)
+
+        attributes = data["attributes"]
+        rows = data["data"]
+
+        target_names = _normalize_target_names(
+            dataset.default_target_attribute,
+        )
+
+        X, y = _build_xy(attributes, rows, target_names)
+
+        mfe = MFE(
+            groups=tuple(groups),
+            random_state=random_state,
+        )
+        mfe.fit(X, y)
+        names, values = mfe.extract(
+            cat_cols="auto",
+            suppress_warnings=True,
+            verbose=0,
+            timeout=timeout,
+        )
+
+        qualities: list[Quality] = []
+        for name, value in zip(names, values):
+            if value is None:
+                parsed: float | None = None
+            else:
+                try:
+                    parsed = float(value)
+                except (TypeError, ValueError):
+                    parsed = None
+
+            if parsed is not None and math.isnan(parsed):
+                parsed = None
+
+            qualities.append(Quality(name=str(name), value=parsed))
+
+    except Exception as exc:
+        return DataQuality(
+            did=did,
+            evaluation_engine_id=evaluation_engine_id,
+            error=str(exc),
+        )
+
+    return DataQuality(
+        did=did,
+        evaluation_engine_id=evaluation_engine_id,
+        qualities=qualities,
     )

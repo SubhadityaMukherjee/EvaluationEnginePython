@@ -117,5 +117,4 @@ _OML_FLOAT_FIELDS = (
     "minimum_value",
     "mean_value",
     "standard_deviation",
-    "value",
 )
