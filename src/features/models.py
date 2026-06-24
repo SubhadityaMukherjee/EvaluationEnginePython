@@ -48,6 +48,15 @@ class Feature:
         return f"{self.index} - {self.name}"
 
 
+@dataclass(slots=True)
+class Quality:
+    name: str
+    value: float | None = None
+
+    def __str__(self) -> str:
+        return f"{self.name} - {self.value}"
+
+
 @dataclass()
 class DataFeature:
     did: Optional[int] = None
@@ -64,13 +73,29 @@ class DataFeature:
         return dict(sorted(result.items())) if sorted_names else result
 
 
+@dataclass()
+class DataQuality:
+    did: Optional[int] = None
+    evaluation_engine_id: Optional[int] = None
+    qualities: list[Quality] = field(default_factory=list)
+    error: Optional[str] = None
+
+    def quality_map(
+        self,
+        *,
+        sorted_names: bool = False,
+    ) -> dict[str, Quality]:
+        result: dict[str, Quality] = {f.name: f for f in self.qualities}
+        return dict(sorted(result.items())) if sorted_names else result
+
+
 # ============================================================================
 # Constants
 # ============================================================================
 
 _NUMERIC_TYPES = frozenset({"NUMERIC", "REAL", "INTEGER"})
 
-
+_OML_STR_FIELDS = "name"
 _OML_BOOL_FIELDS = (
     "is_target",
     "is_ignore",
@@ -92,4 +117,5 @@ _OML_FLOAT_FIELDS = (
     "minimum_value",
     "mean_value",
     "standard_deviation",
+    "value",
 )

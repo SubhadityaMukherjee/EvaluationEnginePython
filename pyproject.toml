@@ -8,8 +8,10 @@ dependencies = [
     "jupyter>=1.1.1",
     "jupyterlab-lsp>=5.3.0",
     "liac-arff>=2.5.0",
+    "openml>=0.15.1",
     "pandas>=3.0.3",
     "parqet>=1.0.4",
+    "pymfe>=0.4.4",
     "scikit-learn>=1.9.0",
     "xmltodict>=1.0.4",
 ]
