@@ -2,7 +2,7 @@ import xmltodict
 import requests
 from tempfile import NamedTemporaryFile
 from typing import Literal
-from src.features.models import DatasetDownloadInfo
+from src.models import DatasetDownloadInfo
 
 
 def download_and_parse(url: str) -> dict:
@@ -35,6 +35,16 @@ def download_to_temp_file(
                 tmp.write(chunk)
 
     return tmp.name
+
+
+def normalize_target_names(target: str | list[str] | None) -> set[str]:
+    if target is None:
+        return set()
+
+    if isinstance(target, str):
+        return {t.strip() for t in target.split(",") if t.strip()}
+
+    return {t.strip() for t in target if t and t.strip()}
 
 
 # ============================================================================

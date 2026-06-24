@@ -5,13 +5,15 @@ from src.features import (
     feature_to_oml_dict,
     features_to_xml,
     load_arff_features,
-    load_arff_qualities,
     parse_features_xml,
-    qualities_to_xml,
 )
 from src.helpers import (
     download_and_parse,
     get_data_and_meta_information_from_did,
+)
+from src.qualities import (
+    load_arff_qualities,
+    qualities_to_xml,
 )
 
 # ============================================================================
