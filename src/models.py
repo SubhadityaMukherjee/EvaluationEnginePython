@@ -1,10 +1,23 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Optional
+from enum import Enum
+from typing import Iterable, Optional
+
 
 # ============================================================================
 # Dataset metadata
 # ============================================================================
 
+
+
+@dataclass(slots=True)
+class Quality:
+    name: str
+    value: float | None = None
+
+    def __str__(self) -> str:
+        return f"{self.name} - {self.value}"
 
 @dataclass()
 class DatasetDownloadInfo:
@@ -48,15 +61,6 @@ class Feature:
         return f"{self.index} - {self.name}"
 
 
-@dataclass(slots=True)
-class Quality:
-    name: str
-    value: float | None = None
-
-    def __str__(self) -> str:
-        return f"{self.name} - {self.value}"
-
-
 @dataclass()
 class DataFeature:
     did: Optional[int] = None
@@ -90,6 +94,41 @@ class DataQuality:
 
 
 # ============================================================================
+# Run evaluation models
+# ============================================================================
+
+
+@dataclass
+class EvaluationScore:
+    """One computed metric. Mirrors ``org.openml.apiconnector.xml.EvaluationScore``."""
+
+    function: str
+    value: Optional[float] = None
+    stdev: Optional[float] = None
+    array: Optional[list] = None
+    repeat: Optional[int] = None
+    fold: Optional[int] = None
+    sample: Optional[int] = None
+    sample_size: Optional[int] = None
+
+
+@dataclass
+class RunEvaluation:
+    """Aggregated result of evaluating one run. Mirrors ``RunEvaluation``."""
+
+    run_id: Optional[int] = None
+    # Canonical evaluation-engine id; mirrors ``EVALUATION_ENGINE_ID`` in
+    # ``src.runs.evaluators`` (kept there to avoid a circular import).
+    evaluation_engine_id: int = 1
+    scores: list[EvaluationScore] = field(default_factory=list)
+    error: Optional[str] = None
+    warning: Optional[str] = None
+
+    def add_scores(self, scores: Iterable[EvaluationScore]) -> None:
+        self.scores.extend(scores)
+
+
+# ============================================================================
 # Constants
 # ============================================================================
 
@@ -118,3 +157,36 @@ _OML_FLOAT_FIELDS = (
     "mean_value",
     "standard_deviation",
 )
+
+
+@dataclass(slots=True)
+class Quality:
+    name: str
+    value: float | None = None
+
+    def __str__(self) -> str:
+        return f"{self.name} - {self.value}"
+
+
+class EstimationProcedureType(str, Enum):
+    CROSSVALIDATION = "CROSSVALIDATION"
+    HOLDOUT = "HOLDOUT"
+    HOLDOUT_ORDERED = "HOLDOUT_ORDERED"
+    LEAVEONEOUT = "LEAVEONEOUT"
+    TESTONTRAININGDATA = "TESTONTRAININGDATA"
+    LEARNINGCURVE_CV = "LEARNINGCURVE_CV"
+
+
+@dataclass(frozen=True)
+class EstimationProcedure:
+    """Estimation-procedure configuration read by the Java dispatcher.
+
+    ``folds`` / ``repeats`` / ``percentage`` correspond to the procedure fields
+    consumed by ``GenerateFolds.java``; ``percentage`` is a test-set size in the
+    range 0..100.
+    """
+
+    type: EstimationProcedureType
+    folds: Optional[int] = None
+    repeats: Optional[int] = None
+    percentage: Optional[float] = None
