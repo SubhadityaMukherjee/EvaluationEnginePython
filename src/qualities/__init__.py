@@ -1,7 +1,7 @@
 from src.models import (
     DataQuality,
-    Quality,
 )
+from models import Quality
 from .arff import load_arff_qualities
 from .serialization import (
     parse_qualities_xml,
@@ -12,7 +12,6 @@ from .serialization import (
 
 __all__ = [
     "DataQuality",
-    "Quality",
     "load_arff_qualities",
     "quality_to_oml_dict",
     "qualities_to_oml_dict",
