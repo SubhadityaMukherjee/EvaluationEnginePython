@@ -7,14 +7,9 @@ from src.features import (
     load_arff_features,
     parse_features_xml,
 )
-from src.folds import (
-    EstimationProcedure,
-    EstimationProcedureType,
-    arff_head,
-    generate_folds,
-    save_splits_arff,
-    splits_to_arff,
-)
+from process_dataset.module import generate_folds
+from process_dataset.arff import splits_to_arff, save_splits_arff, arff_head
+from models import EstimationProcedureType, EstimationProcedure
 from src.helpers import (
     download_and_parse,
     get_data_and_meta_information_from_did,

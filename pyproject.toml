@@ -10,6 +10,7 @@ dependencies = [
     "liac-arff>=2.5.0",
     "openml>=0.15.1",
     "pandas>=3.0.3",
+    "pandas-stubs~=3.0.3",
     "parqet>=1.0.4",
     "pymfe>=0.4.4",
     "scikit-learn>=1.9.0",
