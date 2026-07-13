@@ -48,40 +48,102 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     # Identity / scope options.
-    p.add_argument("-id", "--id", type=int, default=None,
-                   help="The id of the dataset/run used.")
-    p.add_argument("-u", "--user", type=int, default=None,
-                   help="The user id (uploader filter for evaluate_run).")
-    p.add_argument("-t", "--task", type=str, default=None,
-                   help="The task id (or comma-separated list).")
-    p.add_argument("-r", "--run", type=str, default=None,
-                   help="The run id (comma-separated for some functions).")
-    p.add_argument("-f", "--function", type=str, required=True,
-                   help="The function to invoke (see module docstring).")
+    p.add_argument(
+        "-id", "--id", type=int, default=None, help="The id of the dataset/run used."
+    )
+    p.add_argument(
+        "-u",
+        "--user",
+        type=int,
+        default=None,
+        help="The user id (uploader filter for evaluate_run).",
+    )
+    p.add_argument(
+        "-t",
+        "--task",
+        type=str,
+        default=None,
+        help="The task id (or comma-separated list).",
+    )
+    p.add_argument(
+        "-r",
+        "--run",
+        type=str,
+        default=None,
+        help="The run id (comma-separated for some functions).",
+    )
+    p.add_argument(
+        "-f",
+        "--function",
+        type=str,
+        required=True,
+        help="The function to invoke (see module docstring).",
+    )
 
     # Behavior flags.
-    p.add_argument("-x", "--random", action="store_true",
-                   help="Pick a random id rather than the next one in order.")
-    p.add_argument("-reverse", "--reverse", action="store_true",
-                   help="Start evaluating from the last runs.")
-    p.add_argument("-v", "--verbose", action="store_true",
-                   help="Verbose output.")
-    p.add_argument("-m", "--md5", action="store_true",
-                   help="Present the splits file output as an md5 hash.")
+    p.add_argument(
+        "-x",
+        "--random",
+        action="store_true",
+        help="Pick a random id rather than the next one in order.",
+    )
+    p.add_argument(
+        "-reverse",
+        "--reverse",
+        action="store_true",
+        help="Start evaluating from the last runs.",
+    )
+    p.add_argument("-v", "--verbose", action="store_true", help="Verbose output.")
+    p.add_argument(
+        "-m",
+        "--md5",
+        action="store_true",
+        help="Present the splits file output as an md5 hash.",
+    )
 
     # String / numeric modifiers.
-    p.add_argument("-config", "--config", type=str, default=None,
-                   help="Config string describing the settings for API interaction.")
-    p.add_argument("-o", "--output", type=str, default=None,
-                   help="The output file path (or offset, for challenge).")
-    p.add_argument("-test", "--test", type=str, default=None,
-                   help="A list of rowids for a holdout set (fold generation).")
-    p.add_argument("-tag", "--tag", type=str, default=None,
-                   help="A tag that will get priority in processing fantail features.")
-    p.add_argument("-mode", "--mode", type=str, default=None,
-                   help="{train,test} for challenge; ttid override for evaluate_run.")
-    p.add_argument("-size", "--size", type=int, default=None,
-                   help="Desired size of train/test set.")
+    p.add_argument(
+        "-config",
+        "--config",
+        type=str,
+        default=None,
+        help="Config string describing the settings for API interaction.",
+    )
+    p.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default=None,
+        help="The output file path (or offset, for challenge).",
+    )
+    p.add_argument(
+        "-test",
+        "--test",
+        type=str,
+        default=None,
+        help="A list of rowids for a holdout set (fold generation).",
+    )
+    p.add_argument(
+        "-tag",
+        "--tag",
+        type=str,
+        default=None,
+        help="A tag that will get priority in processing features.",
+    )
+    p.add_argument(
+        "-mode",
+        "--mode",
+        type=str,
+        default=None,
+        help="{train,test} for challenge; ttid override for evaluate_run.",
+    )
+    p.add_argument(
+        "-size",
+        "--size",
+        type=int,
+        default=None,
+        help="Desired size of train/test set.",
+    )
 
     return p
 
@@ -104,7 +166,9 @@ def _cmd_evaluate_run(args: argparse.Namespace) -> None:
     else:
         ttids = set(SUPPORTED_TASK_TYPES_EVALUATION)
 
-    evaluation_mode = "reverse" if args.reverse else ("random" if args.random else "normal")
+    evaluation_mode = (
+        "reverse" if args.reverse else ("random" if args.random else "normal")
+    )
 
     # Note: constructor evaluates the run and stores the result on
     # ``.last_result``. Java uploads the result server-side; that path is TODO.
@@ -124,8 +188,10 @@ def _cmd_evaluate_run(args: argparse.Namespace) -> None:
     else:
         per_cell = sum(1 for s in r.scores if s.fold is not None)
         glob = sum(1 for s in r.scores if s.fold is None)
-        print(f"run {r.run_id}: {len(r.scores)} scores "
-              f"({per_cell} per-cell, {glob} global).")
+        print(
+            f"run {r.run_id}: {len(r.scores)} scores "
+            f"({per_cell} per-cell, {glob} global)."
+        )
         for s in (s for s in r.scores if s.fold is None):
             v = f"{s.value:.6f}" if s.value is not None else "None"
             print(f"  {s.function:35s} = {v}")
@@ -189,14 +255,18 @@ def _cmd_generate_folds(args: argparse.Namespace) -> None:
         )
 
     procedure_kwargs = {}
-    if ep_type in (EstimationProcedureType.CROSSVALIDATION,
-                   EstimationProcedureType.LEARNINGCURVE_CV):
+    if ep_type in (
+        EstimationProcedureType.CROSSVALIDATION,
+        EstimationProcedureType.LEARNINGCURVE_CV,
+    ):
         procedure_kwargs = {"folds": 10, "repeats": 1}
     elif ep_type is EstimationProcedureType.HOLDOUT:
         procedure_kwargs = {"percentage": 33, "repeats": 1}
 
     procedure = EstimationProcedure(type=ep_type, **procedure_kwargs)
-    splits, _, _ = generate_folds(did=args.id, procedure=procedure, seed=FOLD_GENERATION_SEED)
+    splits, _, _ = generate_folds(
+        did=args.id, procedure=procedure, seed=FOLD_GENERATION_SEED
+    )
     text = splits_to_arff(splits)
 
     if args.output:

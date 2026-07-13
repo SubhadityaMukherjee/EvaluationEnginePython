@@ -4,11 +4,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Iterable, Optional
 
-
 # ============================================================================
 # Dataset metadata
 # ============================================================================
-
 
 
 @dataclass(slots=True)
@@ -18,6 +16,7 @@ class Quality:
 
     def __str__(self) -> str:
         return f"{self.name} - {self.value}"
+
 
 @dataclass()
 class DatasetDownloadInfo:

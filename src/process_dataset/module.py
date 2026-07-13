@@ -15,6 +15,7 @@ The splits table schema mirrors the Java ``ArffMapping``:
     sample   subsample index (learning-curve tasks only)
 
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -23,9 +24,14 @@ import arff
 import pandas as pd
 
 from src.helpers import get_data_and_meta_information_from_did
-from src.models import DatasetDownloadInfo, EstimationProcedure, EstimationProcedureType
-from src.process_dataset.splitting import crossvalidation_splits, learning_curve_splits, holdout_splits, \
-    holdout_ordered_splits, leave_one_out_splits, train_on_test_splits
+from src.models import (DatasetDownloadInfo, EstimationProcedure,
+                        EstimationProcedureType)
+from src.process_dataset.splitting import (crossvalidation_splits,
+                                           holdout_ordered_splits,
+                                           holdout_splits,
+                                           learning_curve_splits,
+                                           leave_one_out_splits,
+                                           train_on_test_splits)
 
 
 def load_dataset(did: int) -> tuple[pd.DataFrame, Optional[str]]:

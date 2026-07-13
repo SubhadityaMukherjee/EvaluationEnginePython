@@ -1,23 +1,13 @@
 """Sanity check: compare locally computed ARFF features against the OpenML server."""
 
-from src.features import (
-    DataFeature,
-    feature_to_oml_dict,
-    features_to_xml,
-    load_arff_features,
-    parse_features_xml,
-)
+from models import EstimationProcedure, EstimationProcedureType
+from process_dataset.arff import arff_head, save_splits_arff, splits_to_arff
 from process_dataset.module import generate_folds
-from process_dataset.arff import splits_to_arff, save_splits_arff, arff_head
-from models import EstimationProcedureType, EstimationProcedure
-from src.helpers import (
-    download_and_parse,
-    get_data_and_meta_information_from_did,
-)
-from src.qualities import (
-    load_arff_qualities,
-    qualities_to_xml,
-)
+from src.features import (DataFeature, feature_to_oml_dict, features_to_xml,
+                          load_arff_features, parse_features_xml)
+from src.helpers import (download_and_parse,
+                         get_data_and_meta_information_from_did)
+from src.qualities import load_arff_qualities, qualities_to_xml
 
 # ============================================================================
 # Computing features
@@ -134,13 +124,11 @@ if __name__ == "__main__":
         seed=1,
     )
     print("\n[HOLDOUT] rows per (repeat, type):")
-    print(
-        holdout_splits_df.groupby(["repeat", "type"])
-        .size()
-        .unstack(fill_value=0)
-    )
+    print(holdout_splits_df.groupby(["repeat", "type"]).size().unstack(fill_value=0))
 
-    holdout_arff_text = splits_to_arff(holdout_splits_df, relation="iris_holdout_splits")
+    holdout_arff_text = splits_to_arff(
+        holdout_splits_df, relation="iris_holdout_splits"
+    )
     print("\n[HOLDOUT] --- ARFF head ---")
     print(arff_head(holdout_arff_text, n=10))
 
@@ -167,6 +155,8 @@ if __name__ == "__main__":
     )
 
     lc_arff_text = splits_to_arff(lc_splits, relation="iris_learningcurve_splits")
-    save_splits_arff(lc_splits, "iris_lc_splits.arff", relation="iris_learningcurve_splits")
+    save_splits_arff(
+        lc_splits, "iris_lc_splits.arff", relation="iris_learningcurve_splits"
+    )
     print("\n[LC] --- ARFF head (note the @ATTRIBUTE sample) ---")
     print(arff_head(lc_arff_text, n=12))

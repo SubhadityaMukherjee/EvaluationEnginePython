@@ -24,15 +24,10 @@ import arff
 import numpy as np
 import pandas as pd
 from scipy.stats import entropy
-from sklearn.metrics import (
-    accuracy_score,
-    cohen_kappa_score,
-    confusion_matrix,
-    mean_absolute_error,
-    precision_recall_fscore_support,
-    roc_auc_score,
-    root_mean_squared_error,
-)
+from sklearn.metrics import (accuracy_score, cohen_kappa_score,
+                             confusion_matrix, mean_absolute_error,
+                             precision_recall_fscore_support, roc_auc_score,
+                             root_mean_squared_error)
 
 from src.folds import EstimationProcedureType
 
@@ -559,7 +554,9 @@ def evaluate_batch(
         raise ValueError(f"Class attribute ({target_feature}) not found")
 
     class_names = (
-        [] if task_type is TaskType.REGRESSION else _resolve_class_names(dataset_df, target_feature)
+        []
+        if task_type is TaskType.REGRESSION
+        else _resolve_class_names(dataset_df, target_feature)
     )
     num_classes = len(class_names)
 
@@ -585,9 +582,7 @@ def evaluate_batch(
         for cls in class_names:
             col_name = f"confidence.{cls}"
             if col_name not in pred_cols:
-                raise ValueError(
-                    f"Attribute {col_name} not found among predictions."
-                )
+                raise ValueError(f"Attribute {col_name} not found among predictions.")
             confidence_cols[cls] = get_row_index(col_name, pred_cols)
 
     target_values = dataset_df[target_feature].to_numpy()
@@ -618,9 +613,7 @@ def evaluate_batch(
             )
 
         cell_key = (repeat, fold, sample)
-        cell = cells.setdefault(
-            cell_key, {"y_true": [], "y_pred": [], "conf": []}
-        )
+        cell = cells.setdefault(cell_key, {"y_true": [], "y_pred": [], "conf": []})
 
         y_true_i = y_train[rowid]
         cell["y_true"].append(y_true_i)
@@ -641,7 +634,9 @@ def evaluate_batch(
             )
             conf_vec = prediction_to_confidences(conf_vec, pred_value, class_names)
             y_pred_code = (
-                label_to_idx[pred_value] if isinstance(pred_value, str) else int(pred_value)
+                label_to_idx[pred_value]
+                if isinstance(pred_value, str)
+                else int(pred_value)
             )
             cell["y_pred"].append(y_pred_code)
             cell["conf"].append(conf_vec)
@@ -671,7 +666,9 @@ def evaluate_batch(
             metrics = regression_metrics(y_t, y_p, y_train.astype(float))
         else:
             y_p = np.asarray(data["y_pred"], dtype=int)
-            conf_arr = np.asarray(data["conf"]) if data["conf"] else np.zeros((0, num_classes))
+            conf_arr = (
+                np.asarray(data["conf"]) if data["conf"] else np.zeros((0, num_classes))
+            )
             metrics = classification_metrics(
                 y_t, y_p, conf_arr, class_names, y_train, cost_matrix
             )
@@ -689,7 +686,11 @@ def evaluate_batch(
                             repeat=rep,
                             fold=fold,
                             sample=sample,
-                            sample_size=sample_size if task_type is TaskType.LEARNINGCURVE else None,
+                            sample_size=(
+                                sample_size
+                                if task_type is TaskType.LEARNINGCURVE
+                                else None
+                            ),
                         )
                     )
 

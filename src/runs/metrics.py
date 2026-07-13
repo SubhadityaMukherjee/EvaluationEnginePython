@@ -4,15 +4,10 @@ from typing import Iterable, Optional
 
 import numpy as np
 from scipy.stats import entropy
-from sklearn.metrics import (
-    accuracy_score,
-    cohen_kappa_score,
-    confusion_matrix,
-    mean_absolute_error,
-    precision_recall_fscore_support,
-    roc_auc_score,
-    root_mean_squared_error,
-)
+from sklearn.metrics import (accuracy_score, cohen_kappa_score,
+                             confusion_matrix, mean_absolute_error,
+                             precision_recall_fscore_support, roc_auc_score,
+                             root_mean_squared_error)
 
 from src.helpers import _encode_labels, class_ratios
 

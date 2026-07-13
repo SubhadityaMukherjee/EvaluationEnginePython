@@ -26,9 +26,7 @@ def _compute_dataset_qualities(
     n_instances = len(rows)
     n_features = len(attributes)
 
-    target_type_spec = (
-        attr_types[target_idx] if target_idx is not None else None
-    )
+    target_type_spec = attr_types[target_idx] if target_idx is not None else None
     target_is_numeric = isinstance(target_type_spec, str) and (
         target_type_spec.upper() in _NUMERIC_TYPES
     )
@@ -86,9 +84,13 @@ def _compute_dataset_qualities(
             n_symbolic += 1
             if len(type_spec) == 2:
                 n_binary += 1
-        elif isinstance(
-            type_spec, str,
-        ) and type_spec.upper() in _NUMERIC_TYPES:
+        elif (
+            isinstance(
+                type_spec,
+                str,
+            )
+            and type_spec.upper() in _NUMERIC_TYPES
+        ):
             n_numeric += 1
             col = (row[i] for row in rows)
             if len({v for v in col if v is not None}) == 2:
@@ -160,13 +162,9 @@ def _build_xy(
 
     arr = np.array(rows, dtype=object)
 
-    feature_idxs = [
-        i for i in range(len(attr_names)) if i != target_idx
-    ]
+    feature_idxs = [i for i in range(len(attr_names)) if i != target_idx]
 
-    X_full = pd.DataFrame(
-        {attr_names[i]: arr[:, i] for i in feature_idxs}
-    )
+    X_full = pd.DataFrame({attr_names[i]: arr[:, i] for i in feature_idxs})
     y_raw = arr[:, target_idx]
 
     y_obj = np.asarray(y_raw, dtype=object)
@@ -181,11 +179,7 @@ def _build_xy(
     multi_word_cols = [
         c
         for c in string_cols
-        if X_full[c]
-        .dropna()
-        .astype(str)
-        .str.contains(r"\s")
-        .any()
+        if X_full[c].dropna().astype(str).str.contains(r"\s").any()
     ]
     X_clean = X_full.drop(columns=multi_word_cols)
 

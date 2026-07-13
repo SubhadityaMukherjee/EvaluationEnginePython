@@ -19,20 +19,11 @@ from __future__ import annotations
 
 from typing import Optional
 
-from src.features import (
-    DataFeature,
-    features_to_xml,
-    load_arff_features,
-)
-from src.helpers import (
-    get_data_and_meta_information_from_did,
-    get_dataset_description_xml,
-)
+from src.features import DataFeature, features_to_xml, load_arff_features
+from src.helpers import (get_data_and_meta_information_from_did,
+                         get_dataset_description_xml)
 from src.models import DataQuality
-from src.qualities import (
-    load_arff_qualities,
-    qualities_to_xml,
-)
+from src.qualities import load_arff_qualities, qualities_to_xml
 
 # OpenML dataset status constants — Java's
 # org.openml.apiconnector.settings.Constants.DATA_STATUS_*
@@ -78,14 +69,18 @@ class ProcessDataset:
 
             info = get_data_and_meta_information_from_did(did)
 
-            features = load_arff_features(
-                info,
-                did=did,
-                evaluation_engine_id=EVALUATION_ENGINE_ID,
-            ) if default_target is not None else DataFeature(
-                did=did,
-                evaluation_engine_id=EVALUATION_ENGINE_ID,
-                error="Dataset has no default_target_attribute; cannot extract features.",
+            features = (
+                load_arff_features(
+                    info,
+                    did=did,
+                    evaluation_engine_id=EVALUATION_ENGINE_ID,
+                )
+                if default_target is not None
+                else DataFeature(
+                    did=did,
+                    evaluation_engine_id=EVALUATION_ENGINE_ID,
+                    error="Dataset has no default_target_attribute; cannot extract features.",
+                )
             )
 
             # TODO: apiconnector.dataFeaturesUpload(features)

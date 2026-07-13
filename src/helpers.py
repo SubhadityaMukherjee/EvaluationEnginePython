@@ -1,11 +1,12 @@
+from tempfile import NamedTemporaryFile
+from typing import Iterable, Literal
+
 import arff
 import numpy as np
 import pandas as pd
-import xmltodict
 import requests
-from tempfile import NamedTemporaryFile
-from typing import Iterable
-from typing import Literal
+import xmltodict
+
 from src.models import DatasetDownloadInfo
 
 
@@ -89,23 +90,23 @@ def get_data_and_meta_information_from_did(
 
 def get_run_xml(run_id: int) -> dict:
     """Fetch ``/run/{run_id}`` and return the ``oml:run`` node."""
-    return download_and_parse(
-        f"https://www.openml.org/api/v1/xml/run/{run_id}"
-    )["oml:run"]
+    return download_and_parse(f"https://www.openml.org/api/v1/xml/run/{run_id}")[
+        "oml:run"
+    ]
 
 
 def get_task_xml(task_id: int) -> dict:
     """Fetch ``/task/{task_id}`` and return the ``oml:task`` node."""
-    return download_and_parse(
-        f"https://www.openml.org/api/v1/xml/task/{task_id}"
-    )["oml:task"]
+    return download_and_parse(f"https://www.openml.org/api/v1/xml/task/{task_id}")[
+        "oml:task"
+    ]
 
 
 def get_dataset_description_xml(did: int) -> dict:
     """Fetch ``/data/{did}`` and return the ``oml:data_set_description`` node."""
-    return download_and_parse(
-        f"https://www.openml.org/api/v1/xml/data/{did}"
-    )["oml:data_set_description"]
+    return download_and_parse(f"https://www.openml.org/api/v1/xml/data/{did}")[
+        "oml:data_set_description"
+    ]
 
 
 def run_output_file_ids(run_xml: dict) -> dict[str, str]:

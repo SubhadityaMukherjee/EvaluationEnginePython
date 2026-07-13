@@ -1,13 +1,9 @@
 import arff
 
-from src.features.module import _fill_numeric_feature, _fill_nominal_feature
+from src.features.module import _fill_nominal_feature, _fill_numeric_feature
 from src.helpers import normalize_target_names
-from src.models import (
-    DataFeature,
-    DatasetDownloadInfo,
-    Feature,
-    _NUMERIC_TYPES,
-)
+from src.models import (_NUMERIC_TYPES, DataFeature, DatasetDownloadInfo,
+                        Feature)
 
 
 def _liac_type(type_spec):

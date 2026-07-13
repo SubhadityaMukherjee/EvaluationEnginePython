@@ -21,27 +21,14 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from src.helpers import (
-    get_run_xml,
-    get_task_xml,
-    load_arff_to_df,
-    openml_file_url,
-    download_to_temp_file,
-    run_output_file_ids,
-    task_cost_matrix,
-    task_estimation_procedure,
-    task_source_data,
-)
+from src.helpers import (download_to_temp_file, get_run_xml, get_task_xml,
+                         load_arff_to_df, openml_file_url, run_output_file_ids,
+                         task_cost_matrix, task_estimation_procedure,
+                         task_source_data)
 from src.models import EstimationProcedureType, RunEvaluation
-from src.runs import (
-    EVALUATION_ENGINE_ID,
-    SUPPORTED_TASK_TYPES_EVALUATION,
-    TASK_TYPE_ID_TO_TASK_TYPE,
-    TaskType,
-    evaluate_batch,
-    evaluate_stream,
-    evaluate_survival,
-)
+from src.runs import (EVALUATION_ENGINE_ID, SUPPORTED_TASK_TYPES_EVALUATION,
+                      TASK_TYPE_ID_TO_TASK_TYPE, TaskType, evaluate_batch,
+                      evaluate_stream, evaluate_survival)
 
 _MAX_LENGTH_WARNING = 1024
 
@@ -124,9 +111,7 @@ class EvaluateRun:
         """Port of ``EvaluateRun.evaluate``. Returns the assembled
         ``RunEvaluation`` (Java returns void — the side effect there is the
         upload, which is TODO here)."""
-        result = RunEvaluation(
-            run_id=run_id, evaluation_engine_id=EVALUATION_ENGINE_ID
-        )
+        result = RunEvaluation(run_id=run_id, evaluation_engine_id=EVALUATION_ENGINE_ID)
 
         try:
             run_xml = get_run_xml(run_id)
@@ -153,8 +138,7 @@ class EvaluateRun:
                 # TODO: apiconnector.runEvaluate(result)
                 return result
             if not any(
-                k in file_ids
-                for k in ("predictions", "subgroups", "predictions_0")
+                k in file_ids for k in ("predictions", "subgroups", "predictions_0")
             ):
                 result.error = (
                     "Required output files not present (e.g., arff predictions)."
