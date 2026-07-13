@@ -81,6 +81,78 @@ def get_data_and_meta_information_from_did(
 
 
 # ============================================================================
+# Run / task / dataset XML retrieval (raw REST — openml.runs.get_run has a
+# parser bug when input_data/oml:dataset is a list, so we go through the same
+# download_and_parse path that get_data_and_meta_information_from_did uses).
+# ============================================================================
+
+
+def get_run_xml(run_id: int) -> dict:
+    """Fetch ``/run/{run_id}`` and return the ``oml:run`` node."""
+    return download_and_parse(
+        f"https://www.openml.org/api/v1/xml/run/{run_id}"
+    )["oml:run"]
+
+
+def get_task_xml(task_id: int) -> dict:
+    """Fetch ``/task/{task_id}`` and return the ``oml:task`` node."""
+    return download_and_parse(
+        f"https://www.openml.org/api/v1/xml/task/{task_id}"
+    )["oml:task"]
+
+
+def get_dataset_description_xml(did: int) -> dict:
+    """Fetch ``/data/{did}`` and return the ``oml:data_set_description`` node."""
+    return download_and_parse(
+        f"https://www.openml.org/api/v1/xml/data/{did}"
+    )["oml:data_set_description"]
+
+
+def run_output_file_ids(run_xml: dict) -> dict[str, str]:
+    """Map ``output_data`` file names to file ids — Java's
+    ``Run.getOutputFileAsMap()``."""
+    files = run_xml.get("oml:output_data", {}).get("oml:file", [])
+    if isinstance(files, dict):  # single-file edge case
+        files = [files]
+    return {f["oml:name"]: f["oml:file_id"] for f in files}
+
+
+def openml_file_url(file_id: str, filename: str) -> str:
+    """Build a ``/data/download/{file_id}/{filename}`` URL — Java's
+    ``OpenmlConnector.getOpenmlFileUrl``."""
+    return f"https://www.openml.org/data/download/{file_id}/{filename}"
+
+
+def _task_inputs(task_xml: dict) -> dict[str, dict]:
+    """Index ``oml:input`` by ``@name`` — handles the list form the server
+    returns (each element is ``{'@name': 'source_data', ...}``)."""
+    inputs = task_xml.get("oml:input", [])
+    if isinstance(inputs, dict):
+        inputs = [inputs]
+    return {el["@name"]: el for el in inputs}
+
+
+def task_source_data(task_xml: dict) -> dict:
+    """The ``source_data`` input — Java's ``TaskInformation.getSourceData``."""
+    inp = _task_inputs(task_xml).get("source_data")
+    if inp is None:
+        raise ValueError("task has no source_data input")
+    return inp["oml:data_set"]
+
+
+def task_estimation_procedure(task_xml: dict) -> dict | None:
+    """The ``estimation_procedure`` input, or ``None`` if absent."""
+    inp = _task_inputs(task_xml).get("estimation_procedure")
+    return inp.get("oml:estimation_procedure") if inp else None
+
+
+def task_cost_matrix(task_xml: dict) -> dict | None:
+    """The ``cost_matrix`` input, or ``None`` if absent."""
+    inp = _task_inputs(task_xml).get("cost_matrix")
+    return inp.get("oml:cost_matrix") if inp else None
+
+
+# ============================================================================
 # ARFF / prediction helpers (ported from InstancesHelper.java)
 # ============================================================================
 

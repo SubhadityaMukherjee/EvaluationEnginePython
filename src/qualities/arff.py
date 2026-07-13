@@ -3,13 +3,13 @@ import math
 import arff
 from pymfe.mfe import MFE
 
-from qualities.module import _compute_dataset_qualities, _build_xy
+from src.qualities.module import _compute_dataset_qualities, _build_xy
 from src.helpers import normalize_target_names
 from src.models import (
     DataQuality,
     DatasetDownloadInfo,
 )
-from models import Quality
+from src.models import Quality
 
 _DEFAULT_MFE_GROUPS = ("general", "statistical", "info-theory")
 

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold, KFold, LeaveOneOut, ShuffleSplit
 
-from models import EstimationProcedure
+from src.models import EstimationProcedure
 
 
 def _is_nominal(df: pd.DataFrame, target: Optional[str]) -> bool:

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from models import Feature
+from src.models import Feature
 
 
 def _fill_numeric_feature(col, feat: Feature) -> None:

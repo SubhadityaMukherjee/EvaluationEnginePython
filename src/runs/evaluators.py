@@ -6,7 +6,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from models import EstimationProcedureType
+from src.models import EstimationProcedureType
 from src.helpers import (
     _encode_labels,
     get_row_index,

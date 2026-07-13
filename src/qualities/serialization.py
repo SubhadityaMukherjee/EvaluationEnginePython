@@ -3,7 +3,7 @@ import xmltodict
 from src.models import (
     DataQuality,
 )
-from models import Quality
+from src.models import Quality
 
 
 def quality_to_oml_dict(qua: Quality) -> dict:

@@ -3,7 +3,7 @@ from collections import Counter
 import numpy as np
 import pandas as pd
 
-from models import _NUMERIC_TYPES, Quality
+from src.models import _NUMERIC_TYPES, Quality
 
 
 def _pct(num: int, den: int) -> float | None:

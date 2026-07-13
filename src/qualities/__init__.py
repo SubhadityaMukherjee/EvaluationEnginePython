@@ -1,7 +1,7 @@
 from src.models import (
     DataQuality,
 )
-from models import Quality
+from src.models import Quality
 from .arff import load_arff_qualities
 from .serialization import (
     parse_qualities_xml,

@@ -87,13 +87,19 @@ def classification_metrics(
     cm = confusion_matrix(y_true, y_pred, labels=classes)
 
     # Probability-vector MAE/RMSE (Weka's definition for classification).
+    # Weka's Evaluation.meanAbsoluteError() divides by N * num_classes (the
+    # per-class differences are summed inside, then the total is divided by
+    # m_WithClass which is N — but the accumulation runs over classes too, so
+    # the effective denominator is N*C). Confirmed against the OpenML server
+    # for run 1 / dataset 9 (autos): port gave 0.8895, server had 0.1271,
+    # ratio is exactly 7 = num_classes.
     onehot = np.eye(num_classes)[y_true]
-    mae = float(np.abs(conf - onehot).sum(axis=1).mean())
-    rmse = float(np.sqrt(np.square(conf - onehot).sum(axis=1).mean()))
+    mae = float(np.abs(conf - onehot).mean())
+    rmse = float(np.sqrt(np.square(conf - onehot).mean()))
 
     prior = class_ratios(y_train_arr, num_classes)
-    mae_prior = float(np.abs(onehot - prior).sum(axis=1).mean())
-    rmse_prior = float(np.sqrt(np.square(onehot - prior).sum(axis=1).mean()))
+    mae_prior = float(np.abs(onehot - prior).mean())
+    rmse_prior = float(np.sqrt(np.square(onehot - prior).mean()))
     h_prior = float(entropy(prior, base=2)) if prior.sum() > 0 else 0.0
 
     p, r, f, _ = precision_recall_fscore_support(
