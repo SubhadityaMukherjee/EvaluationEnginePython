@@ -29,10 +29,8 @@ import argparse
 import sys
 from typing import Optional, Sequence
 
-# Maps Java's Settings.SUPPORTED_TASK_TYPES_EVALUATION.
 from src.runs import SUPPORTED_TASK_TYPES_EVALUATION
 
-# Java's Main.FOLD_GENERATION_SEED.
 FOLD_GENERATION_SEED = 0
 
 
@@ -144,6 +142,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Desired size of train/test set.",
     )
+    p.add_argument(
+        "-test",
+        "--test",
+        action="store_true",
+        help="Target test.openml.org instead of production (default api key "
+        "'normaluser'; used by process_dataset).",
+    )
 
     return p
 
@@ -154,7 +159,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _cmd_evaluate_run(args: argparse.Namespace) -> None:
-    """Port of Main.java:98-112. ``--mode`` overrides the supported task-type
+    """``--mode`` overrides the supported task-type
     set with a single ttid; otherwise all of SUPPORTED_TASK_TYPES_EVALUATION."""
     from src.evaluate_run import EvaluateRun
 
@@ -198,16 +203,17 @@ def _cmd_evaluate_run(args: argparse.Namespace) -> None:
 
 
 def _cmd_process_dataset(args: argparse.Namespace) -> None:
-    """Port of Main.java:114-117."""
+    from src.client import OpenmlClient
     from src.process_dataset import ProcessDataset
 
     mode = "random" if args.random else "normal"
+    client = OpenmlClient(test=args.test)
     if args.id is None:
         # Java constructor would poll. We expose it as an explicit .poll().
-        ProcessDataset(mode=mode).poll()
+        ProcessDataset(mode=mode, client=client).poll()
         return
 
-    pd = ProcessDataset(dataset_id=args.id, mode=mode)
+    pd = ProcessDataset(dataset_id=args.id, mode=mode, client=client)
     f, q = pd.last_features, pd.last_qualities
     if f and f.error:
         print(f"dataset {args.id}: features error - {f.error}", file=sys.stderr)
@@ -220,7 +226,6 @@ def _cmd_process_dataset(args: argparse.Namespace) -> None:
 
 
 def _cmd_process_dataset_print(args: argparse.Namespace) -> None:
-    """Port of Main.java:118-120. Local-only feature extraction → stdout."""
     from src.process_dataset import ProcessDataset
 
     if args.id is None:
@@ -229,7 +234,7 @@ def _cmd_process_dataset_print(args: argparse.Namespace) -> None:
 
 
 def _cmd_generate_folds(args: argparse.Namespace) -> None:
-    """Port of Main.java:141-149. Writes splits ARFF to ``--output`` or stdout.
+    """Writes splits ARFF to ``--output`` or stdout.
 
     The Java GenerateFolds uses the dataset's task-default procedure; we don't
     have a Python equivalent of that lookup, so we default to 10-fold CV with
@@ -292,8 +297,6 @@ _DISPATCH: dict[str, callable] = {
     "process_dataset": _cmd_process_dataset,
     "process_dataset_print": _cmd_process_dataset_print,
     "generate_folds": _cmd_generate_folds,
-    # Functions below are recognised (matching Main.java's option parsing) but
-    # unimplemented. Each call site logs the missing functionality.
     "extract_features_all": lambda a: _not_implemented("extract_features_all"),
     "extract_features_simple": lambda a: _not_implemented("extract_features_simple"),
     "merge_datasets": lambda a: _not_implemented("merge_datasets"),
