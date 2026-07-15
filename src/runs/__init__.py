@@ -6,6 +6,8 @@ from .evaluators import (EVALUATION_ENGINE_ID, SUPPORTED_TASK_TYPES_EVALUATION,
 from .metrics import (classification_metrics, kb_relative_information,
                       regression_metrics)
 from .prediction_counter import FoldsPredictionCounter
+from .serialization import (evaluation_score_to_oml_dict,
+                            run_evaluation_to_oml_dict, run_evaluation_to_xml)
 
 __all__ = [
     "EVALUATION_ENGINE_ID",
@@ -20,6 +22,9 @@ __all__ = [
     "evaluate_run",
     "evaluate_stream",
     "evaluate_survival",
+    "evaluation_score_to_oml_dict",
     "kb_relative_information",
     "regression_metrics",
+    "run_evaluation_to_oml_dict",
+    "run_evaluation_to_xml",
 ]

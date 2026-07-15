@@ -102,6 +102,17 @@ def get_task_xml(task_id: int) -> dict:
     ]
 
 
+def get_task_inputs_xml(task_id: int) -> dict:
+    """Fetch ``/task/inputs/{task_id}`` and return the ``oml:task_inputs`` node.
+
+    Distinct from ``get_task_xml`` — Java's MergeDataset uses
+    ``openml.taskInputs(taskId)`` which hits this endpoint, returning the
+    structured ``oml:inputs`` form with ``source_data_list`` etc."""
+    return download_and_parse(
+        f"https://www.openml.org/api/v1/xml/task/inputs/{task_id}"
+    )["oml:task_inputs"]
+
+
 def get_dataset_description_xml(did: int) -> dict:
     """Fetch ``/data/{did}`` and return the ``oml:data_set_description`` node."""
     return download_and_parse(f"https://www.openml.org/api/v1/xml/data/{did}")[

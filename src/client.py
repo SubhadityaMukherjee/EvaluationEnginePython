@@ -10,6 +10,8 @@ Endpoints (all under ``base_url``, default ``https://www.openml.org/api/v1/``):
   * ``POST /data/qualities``       — ``data_qualities_upload``
   * ``POST /data/status/update``   — ``data_status_update``
   * ``GET  /data/unprocessed/{engine_id}/{mode}`` — ``data_unprocessed``
+  * ``POST /run/evaluate``         — ``run_evaluate_upload``
+  * ``GET  /evaluation/request/{engine_id}/{mode}/{n}[/{k}/{v}]`` — ``evaluation_request``
 
 Server errors come back as ``<oml:api_error><oml:code>…</oml:code>
 <oml:message>…</oml:message>[<oml:additional_information>…]
@@ -30,6 +32,7 @@ import xmltodict
 from src.features import features_to_xml
 from src.models import DataFeature, DataQuality
 from src.qualities import qualities_to_xml
+from src.runs import RunEvaluation, run_evaluation_to_xml
 
 PROD_BASE_URL = "https://www.openml.org/api/v1/"
 TEST_BASE_URL = "https://test.openml.org/api/v1/"
@@ -143,6 +146,14 @@ class OpenmlClient:
     # ProcessDataset-facing methods
     # ----------------------------------------------------------------------
 
+    def data_get(self, did: int) -> dict:
+        """Port of ``OpenmlBasicConnector.dataGet`` — GET ``/data/{did}``,
+        return the ``oml:data_set_description`` node. Used by MergeDataset to
+        fetch the ARFF URL server-side (the description's ``oml:url`` is
+        relative to whatever server this client targets)."""
+        parsed = self._get_xml(f"data/{did}")
+        return parsed["oml:data_set_description"]
+
     def data_features_upload(self, features: DataFeature) -> int:
         """Port of ``OpenmlConnector.dataFeaturesUpload`` — POST ``/data/features``
         with the serialized XML as the ``description`` file part. Returns the
@@ -180,3 +191,71 @@ class OpenmlClient:
         if isinstance(datasets, dict):  # single-dataset edge case
             datasets = [datasets]
         return [int(d["oml:did"]) for d in datasets]
+
+    def data_qualities_unprocessed(
+        self,
+        engine_id: int,
+        mode: str,
+        qualities: list[str],
+        *,
+        feature_qualities: bool = False,
+        priority_tag: Optional[str] = None,
+    ) -> list[int]:
+        """Port of ``OpenmlBasicConnector.dataqualitiesUnprocessed`` — POST
+        ``/data/qualities/unprocessed/{engine_id}/{mode}`` with a comma-joined
+        ``qualities`` field, optional ``/feature`` segment and optional
+        ``/{priority_tag}`` suffix. Returns dataset ids missing any of the
+        listed qualities. As with ``data_unprocessed``, an empty page comes
+        back as ``OpenmlApiError`` whose message contains "No unprocessed"."""
+        path = f"data/qualities/unprocessed/{engine_id}/{mode}"
+        if feature_qualities:
+            path += "/feature"
+        if priority_tag:
+            path += f"/{priority_tag}"
+        fields = {"qualities": ",".join(qualities)}
+        parsed = self._post(path, fields=fields)
+        root = parsed.get("oml:data_unprocessed", {})
+        datasets = root.get("oml:dataset", [])
+        if isinstance(datasets, dict):  # single-dataset edge case
+            datasets = [datasets]
+        return [int(d["oml:did"]) for d in datasets]
+
+    # ----------------------------------------------------------------------
+    # EvaluateRun-facing methods
+    # ----------------------------------------------------------------------
+
+    def run_evaluate_upload(self, run_eval: RunEvaluation) -> int:
+        """Port of ``OpenmlConnector.runEvaluate`` — POST ``/run/evaluate``
+        with the serialized XML as the ``description`` file part. Returns the
+        ``run_id`` the server echoes back
+        (``<oml:run_evaluate><oml:run_id>``)."""
+        xml_bytes = run_evaluation_to_xml(run_eval, pretty=False).encode("utf-8")
+        files = {"description": ("description.xml", xml_bytes, "application/xml")}
+        parsed = self._post("run/evaluate", files=files)
+        return int(parsed["oml:run_evaluate"]["oml:run_id"])
+
+    def evaluation_request(
+        self,
+        engine_id: int,
+        mode: str,
+        num_requests: int,
+        filters: Optional[dict[str, str]] = None,
+    ) -> list[int]:
+        """Port of ``OpenmlBasicConnector.evaluationRequest`` — GET
+        ``/evaluation/request/{engine_id}/{mode}/{num_requests}`` followed by
+        ``/{key}/{value}`` for each filter. Returns the list of run ids to
+        evaluate.
+
+        When no runs remain the server returns API error 1013
+        (``NO_UNEVALUATED_RUNS`` — see ``ApiErrorMapping``), which surfaces here
+        as ``OpenmlApiError``; callers should catch it to stop the loop."""
+        path = f"evaluation/request/{engine_id}/{mode}/{num_requests}"
+        if filters:
+            for key, value in filters.items():
+                path += f"/{key}/{value}"
+        parsed = self._get_xml(path)
+        root = parsed.get("oml:evaluation_request", {})
+        runs = root.get("oml:run", [])
+        if isinstance(runs, dict):  # single-run edge case
+            runs = [runs]
+        return [int(r["oml:run_id"]) for r in runs]
