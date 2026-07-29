@@ -100,7 +100,7 @@ def _splits_for_procedure(
         return leave_one_out_splits(df)
     if t is EstimationProcedureType.TESTONTRAININGDATA:
         return train_on_test_splits(df)
-    raise ValueError(f"Unsupported procedure type: {t}")
+    raise ValueError(f"No fold generator for procedure type {t!r}.")
 
 
 def generate_folds(
@@ -141,7 +141,10 @@ def _estimation_procedure_from_task(ep: dict) -> EstimationProcedure:
     type_str = (ep.get("oml:type") or "").lower()
     ep_type = _PROCEDURE_TYPE_MAP.get(type_str)
     if ep_type is None:
-        raise ValueError(f"Unsupported estimation procedure type: {type_str!r}")
+        raise ValueError(
+            f"Unsupported estimation procedure type {type_str!r}; expected "
+            f"one of {sorted(_PROCEDURE_TYPE_MAP)}."
+        )
 
     params = _procedure_parameters(ep)
     folds = int(params["number_folds"]) if params.get("number_folds") else None
@@ -175,7 +178,9 @@ def generate_folds_for_task(
 
     ep = task_estimation_procedure(task_xml)
     if ep is None:
-        raise ValueError("Task has no estimation_procedure input.")
+        raise ValueError(
+            "Task has no estimation_procedure input; cannot generate folds."
+        )
     procedure = _estimation_procedure_from_task(ep)
 
     df, _ = load_dataset(did, base_url, data_format=data_format)

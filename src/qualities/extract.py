@@ -26,8 +26,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from src.client import OpenmlApiError, OpenmlClient
+from src.client import OpenmlClient
 from src.data_loader import DataLoader
+from src.exceptions import OpenmlApiError
 from src.helpers import get_data_and_meta_information_from_did
 from src.models import DataFormat, DataQuality, DatasetDownloadInfo, Quality
 from src.qualities.landmarkers import compute_all_landmarkers, expected_landmarker_ids
