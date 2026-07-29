@@ -148,6 +148,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "merge_datasets).",
     )
 
+    p.add_argument(
+        "-df",
+        "--dataset-format",
+        type=str,
+        default="arff",
+        choices=["arff", "parquet"],
+        help="Dataset file format to download and parse (default: arff). "
+        "Parquet is being phased in as ARFF support is retired.",
+    )
+
     return p
 
 
@@ -184,6 +194,7 @@ def _cmd_evaluate_run(args: argparse.Namespace) -> None:
         tag=args.tag,
         uploader_id=args.user,
         client=OpenmlClient(test=args.test),
+        dataset_format=args.dataset_format,
     )
     r = er.last_result
     if r is None:
@@ -210,10 +221,17 @@ def _cmd_process_dataset(args: argparse.Namespace) -> None:
     client = OpenmlClient(test=args.test)
     if args.id is None:
         # Java constructor would poll. We expose it as an explicit .poll().
-        ProcessDataset(mode=mode, client=client).poll()
+        ProcessDataset(
+            mode=mode, client=client, dataset_format=args.dataset_format
+        ).poll()
         return
 
-    pd = ProcessDataset(dataset_id=args.id, mode=mode, client=client)
+    pd = ProcessDataset(
+        dataset_id=args.id,
+        mode=mode,
+        client=client,
+        dataset_format=args.dataset_format,
+    )
     f, q = pd.last_features, pd.last_qualities
     if f and f.error:
         print(f"dataset {args.id}: features error - {f.error}", file=sys.stderr)
@@ -231,7 +249,9 @@ def _cmd_process_dataset_print(args: argparse.Namespace) -> None:
 
     if args.id is None:
         raise SystemExit("process_dataset_print requires --id <dataset_id>.")
-    ProcessDataset(client=OpenmlClient(test=args.test)).process_and_print(args.id)
+    ProcessDataset(
+        client=OpenmlClient(test=args.test), dataset_format=args.dataset_format
+    ).process_and_print(args.id)
 
 
 def _cmd_generate_folds(args: argparse.Namespace) -> None:
@@ -253,6 +273,7 @@ def _cmd_generate_folds(args: argparse.Namespace) -> None:
         task_id=args.id,
         base_url=OpenmlClient(test=args.test).base_url,
         seed=FOLD_GENERATION_SEED,
+        data_format=args.dataset_format,
     )
     text = splits_to_arff(splits)
 
@@ -278,6 +299,7 @@ def _cmd_extract_features(args: argparse.Namespace, characterizer_set: str) -> N
         mode=mode,
         characterizer_set=characterizer_set,
         priority_tag=args.tag,
+        dataset_format=args.dataset_format,
     )
     if args.id is None:
         ef.poll()

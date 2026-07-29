@@ -28,7 +28,7 @@ from src.helpers import (download_to_temp_file, get_run_xml, get_task_xml,
                          load_arff_to_df, openml_file_url, run_output_file_ids,
                          task_cost_matrix, task_estimation_procedure,
                          task_source_data)
-from src.models import EstimationProcedureType, RunEvaluation
+from src.models import DataFormat, EstimationProcedureType, RunEvaluation
 from src.runs import (EVALUATION_ENGINE_ID, SUPPORTED_TASK_TYPES_EVALUATION,
                       TASK_TYPE_ID_TO_TASK_TYPE, TaskType, evaluate_batch,
                       evaluate_stream, evaluate_survival)
@@ -98,6 +98,7 @@ class EvaluateRun:
         tag: Optional[str] = None,
         uploader_id: Optional[int] = None,
         client: Optional[OpenmlClient] = None,
+        dataset_format: DataFormat = "arff",
     ) -> None:
         self.evaluation_mode = evaluation_mode
         self.task_type_ids = (
@@ -107,6 +108,7 @@ class EvaluateRun:
         self.tag = tag
         self.uploader_id = uploader_id
         self._client = client
+        self._dataset_format: DataFormat = dataset_format
         self.last_result: Optional[RunEvaluation] = None
 
         if run_id is not None:
@@ -178,6 +180,7 @@ class EvaluateRun:
                 file_ids=file_ids,
                 run_id=run_id,
                 base_url=base_url,
+                data_format=self._dataset_format,
             )
 
             scores = self._compute_scores(
@@ -320,6 +323,7 @@ def _load_run_inputs(
     file_ids: dict[str, str],
     run_id: int,
     base_url: str,
+    data_format: DataFormat = "arff",
 ) -> tuple[pd.DataFrame, Optional[pd.DataFrame], pd.DataFrame]:
     """Download dataset, splits, and predictions for a run.
 
@@ -328,7 +332,7 @@ def _load_run_inputs(
     """
     from src.process_dataset.module import load_dataset
 
-    dataset_df, _ = load_dataset(dataset_id, base_url)
+    dataset_df, _ = load_dataset(dataset_id, base_url, data_format=data_format)
 
     # Splits URL comes from the task's estimation_procedure. Stream tasks (4)
     # and survival (7) — survival still uses splits — handle both.

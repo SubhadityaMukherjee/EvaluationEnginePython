@@ -20,12 +20,12 @@ from __future__ import annotations
 
 from typing import Optional
 
-import arff
 import pandas as pd
 
+from src.data_loader import DataLoader
 from src.helpers import (DEFAULT_API_BASE, get_data_and_meta_information_from_did,
                          get_task_xml, task_estimation_procedure, task_source_data)
-from src.models import (DatasetDownloadInfo, EstimationProcedure,
+from src.models import (DataFormat, DatasetDownloadInfo, EstimationProcedure,
                         EstimationProcedureType)
 from src.process_dataset.splitting import (crossvalidation_splits,
                                            holdout_ordered_splits,
@@ -36,23 +36,26 @@ from src.process_dataset.splitting import (crossvalidation_splits,
 
 
 def load_dataset(
-    did: int, base_url: str = DEFAULT_API_BASE
+    did: int,
+    base_url: str = DEFAULT_API_BASE,
+    *,
+    data_format: DataFormat = "arff",
 ) -> tuple[pd.DataFrame, Optional[str]]:
     """Download an OpenML dataset by id and return ``(DataFrame, target)``.
 
-    downloads the ARFF for a given dataset id and returns its temp file path plus the declared
-    target attribute. We wrap ``liac-arff`` to turn that into a DataFrame,
-    preserving file order so that row indices are stable ``rowid`` s.
+    Downloads the dataset (ARFF or Parquet, per ``data_format``) and parses it
+    via :class:`~src.data_loader.DataLoader` into a DataFrame, preserving file
+    order so that row indices are stable ``rowid`` s. Nominal columns become
+    ``pd.Categorical`` with their declared categories.
     """
-    info: DatasetDownloadInfo = get_data_and_meta_information_from_did(did, base_url=base_url)
+    info: DatasetDownloadInfo = get_data_and_meta_information_from_did(
+        did, dataset_type=data_format, base_url=base_url
+    )
 
-    with open(info.file_path, "r", encoding="utf-8", errors="replace") as f:
-        payload = arff.load(f)
+    attributes, rows = DataLoader(data_format).load(info)
 
-    attributes = payload["attributes"]
     columns = [name for name, _ in attributes]
-
-    df = pd.DataFrame(payload["data"], columns=columns)
+    df = pd.DataFrame(rows, columns=columns)
 
     for name, type_spec in attributes:
         if isinstance(type_spec, list):
@@ -105,13 +108,15 @@ def generate_folds(
     procedure: EstimationProcedure,
     seed: int = 1,
     base_url: str = DEFAULT_API_BASE,
+    *,
+    data_format: DataFormat = "arff",
 ) -> tuple[pd.DataFrame, pd.DataFrame, Optional[str]]:
     """Download dataset ``did`` and compute its splits table for an explicit
     ``procedure``. Low-level entry point; the CLI uses
     :func:`generate_folds_for_task`, which mirrors Java's task-driven
     ``GenerateFolds``.
     """
-    df, target = load_dataset(did, base_url)
+    df, target = load_dataset(did, base_url, data_format=data_format)
     return _splits_for_procedure(df, procedure, target=target, seed=seed), df, target
 
 
@@ -152,6 +157,7 @@ def generate_folds_for_task(
     *,
     base_url: str = DEFAULT_API_BASE,
     seed: int = FOLD_GENERATION_SEED,
+    data_format: DataFormat = "arff",
 ) -> tuple[pd.DataFrame, pd.DataFrame, Optional[str]]:
     """Port of ``GenerateFolds.java`` — ``task_id`` is a TASK id (matching
     Java's ``-f generate_folds -id <task_id>``).
@@ -172,6 +178,6 @@ def generate_folds_for_task(
         raise ValueError("Task has no estimation_procedure input.")
     procedure = _estimation_procedure_from_task(ep)
 
-    df, _ = load_dataset(did, base_url)
+    df, _ = load_dataset(did, base_url, data_format=data_format)
     splits = _splits_for_procedure(df, procedure, target=target, seed=seed)
     return splits, df, target

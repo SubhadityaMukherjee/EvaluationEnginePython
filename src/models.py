@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Iterable, Optional
+from typing import Iterable, Literal, Optional
+
+# Dataset file formats supported throughout the engine. Picked once at the
+# edge (CLI flag / notebook) and threaded through download + parse.
+DataFormat = Literal["arff", "parquet"]
 
 # ============================================================================
 # Dataset metadata
