@@ -49,7 +49,8 @@ class MergeDataset:
         task_type_id = int(ti["oml:task_type_id"])
         if task_type_id in LEARNING_CURVE_TASK_IDS:
             raise ValueError(
-                "Can only invoke this function on task type MultiTask."
+                f"MergeDataset requires a MultiTask task, but task {self.task_id} "
+                f"has task_type_id {task_type_id}."
             )
 
         data_ids = self._parse_source_data_list(ti)
@@ -72,7 +73,9 @@ class MergeDataset:
                 raw = inp.get("#text") or inp.get("oml:value") or ""
                 ids = sorted({int(x) for x in json.loads(raw)})
                 if not ids:
-                    raise ValueError("source_data_list is empty.")
+                    raise ValueError(
+                        "Task 'source_data_list' is empty; nothing to merge."
+                    )
                 return ids
         raise ValueError(
             f"Task has no source_data_list input — is task_type_id MultiTask?"
@@ -119,7 +122,10 @@ class MergeDataset:
         — verifies attributes, builds a relation name from sorted ids, unions
         nominal categories across datasets, concatenates rows."""
         if not self.verify_attribute_set():
-            raise ValueError("Attribute Set does not agree!")
+            raise ValueError(
+                f"Cannot merge: attribute names differ across the "
+                f"{len(self.datasets)} source datasets."
+            )
 
         sorted_ids = sorted(self.datasets.keys())
         # Java: "merged" + keys.toString() munged to remove brackets/spaces.

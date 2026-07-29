@@ -7,6 +7,7 @@ import pandas as pd
 import requests
 import xmltodict
 
+from src.exceptions import PredictionValidationError
 from src.models import DataFormat, DatasetDownloadInfo
 
 # Default API base (production). CLI paths always pass the server resolved
@@ -80,7 +81,10 @@ def get_data_and_meta_information_from_did(
     dataset_type = dataset_type.lower()
 
     if dataset_type not in {"arff", "parquet"}:
-        raise ValueError("dataset_type must be 'arff' or 'parquet'")
+        raise ValueError(
+            f"Unsupported dataset_type {dataset_type!r}; "
+            f"expected 'arff' or 'parquet'."
+        )
 
     metadata = download_and_parse(f"{base_url}xml/data/{did}")[
         "oml:data_set_description"
@@ -165,7 +169,10 @@ def task_source_data(task_xml: dict) -> dict:
     """The ``source_data`` input — Java's ``TaskInformation.getSourceData``."""
     inp = _task_inputs(task_xml).get("source_data")
     if inp is None:
-        raise ValueError("task has no source_data input")
+        raise ValueError(
+            "Task XML has no 'source_data' input; cannot determine the "
+            "dataset to evaluate."
+        )
     return inp["oml:data_set"]
 
 
@@ -206,7 +213,7 @@ def get_row_index_multi(names: Iterable[str], columns: Iterable[str]) -> int:
         if name in cols:
             return cols.index(name)
     raise ValueError(
-        f"ARFF file contains none of the specified attributes: {list(names)}"
+        f"None of the expected columns {list(names)} were found in the input."
     )
 
 
@@ -261,8 +268,10 @@ def prediction_to_confidences(
     """
     conf = np.asarray(confidence_values, dtype=float)
     if np.isnan(conf).any():
-        raise ValueError(
-            "Prediction file contains missing values for a confidence attribute."
+        raise PredictionValidationError(
+            "Predictions file contains a missing value for a confidence "
+            "attribute; OpenML predictions must provide a confidence for "
+            "every class."
         )
     if not (conf > 0).any():
         label_to_idx = {c: i for i, c in enumerate(class_names)}

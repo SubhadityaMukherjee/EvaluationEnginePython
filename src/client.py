@@ -29,6 +29,7 @@ from typing import Optional
 import requests
 import xmltodict
 
+from src.exceptions import OpenmlApiError, OpenmlConfigError
 from src.features import features_to_xml
 from src.models import DataFeature, DataQuality
 from src.qualities import qualities_to_xml
@@ -40,19 +41,6 @@ TEST_BASE_URL = "https://test.openml.org/api/v1/"
 # ``_TEST_SERVERS`` table). Lets ``OpenmlClient(test=True)`` work without
 # ``OPENML_API_KEY`` set. Production has no default — callers must supply one.
 TEST_DEFAULT_API_KEY = "normaluser"
-
-
-class OpenmlApiError(Exception):
-    """Raised when the server returns an ``oml:api_error`` envelope.
-
-    Mirrors ``org.openml.apiconnector.io.ApiException`` — ``code`` is the
-    OpenML numeric error code (e.g. 441, 431) so callers can branch on it.
-    """
-
-    def __init__(self, code: int, message: str) -> None:
-        super().__init__(f"[{code}] {message}")
-        self.code = code
-        self.message = message
 
 
 class OpenmlClient:
@@ -82,8 +70,9 @@ class OpenmlClient:
         if resolved is None:
             resolved = os.environ.get("OPENML_API_KEY")
         if not resolved:
-            raise RuntimeError(
-                "OpenML API key not set. Provide api_key= or set OPENML_API_KEY."
+            raise OpenmlConfigError(
+                "OpenML API key not set. Pass api_key=... when constructing the "
+                "client or set the OPENML_API_KEY environment variable."
             )
         self.api_key = resolved
         self.base_url = base_url if base_url.endswith("/") else base_url + "/"
