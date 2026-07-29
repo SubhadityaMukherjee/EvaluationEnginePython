@@ -90,7 +90,7 @@ class ExtractFeatures:
     def process(self, did: int) -> DataQuality:
         """Compute qualities for one dataset and upload. Returns the
         ``DataQuality`` (Java uploads as a side effect — same here)."""
-        info = get_data_and_meta_information_from_did(did)
+        info = get_data_and_meta_information_from_did(did, base_url=self.client.base_url)
         data_quality = load_arff_qualities(
             info,
             did=did,

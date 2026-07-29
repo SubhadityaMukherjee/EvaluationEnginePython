@@ -227,51 +227,33 @@ def _cmd_process_dataset(args: argparse.Namespace) -> None:
 
 
 def _cmd_process_dataset_print(args: argparse.Namespace) -> None:
+    from src.client import OpenmlClient
     from src.process_dataset import ProcessDataset
 
     if args.id is None:
         raise SystemExit("process_dataset_print requires --id <dataset_id>.")
-    ProcessDataset().process_and_print(args.id)
+    ProcessDataset(client=OpenmlClient(test=args.test)).process_and_print(args.id)
 
 
 def _cmd_generate_folds(args: argparse.Namespace) -> None:
     """Writes splits ARFF to ``--output`` or stdout.
 
-    The Java GenerateFolds uses the dataset's task-default procedure; we don't
-    have a Python equivalent of that lookup, so we default to 10-fold CV with
-    1 repeat and ``FOLD_GENERATION_SEED``. Override via the env-var-style
-    procedure name parsed from ``--mode`` if given (one of: crossvalidation,
-    holdout, leaveoneout, testontrainingdata, learningcurve).
+    Mirrors Java's ``GenerateFolds``: ``--id`` is a TASK id. The source
+    dataset, estimation-procedure type, and folds/repeats/percentage are all
+    read from that task (Java's Main.java:138-146 / GenerateFolds.java); the
+    seed is ``FOLD_GENERATION_SEED`` (Java's Main.java:46).
     """
-    from src.models import EstimationProcedure, EstimationProcedureType
-    from src.process_dataset import generate_folds
+    from src.client import OpenmlClient
     from src.process_dataset.arff import splits_to_arff
+    from src.process_dataset.module import generate_folds_for_task
 
     if args.id is None:
-        raise SystemExit("generate_folds requires --id <dataset_id>.")
+        raise SystemExit("generate_folds requires --id <task_id>.")
 
-    procedure_name = (args.mode or "crossvalidation").lower()
-    try:
-        ep_type = EstimationProcedureType[procedure_name.upper()]
-    except KeyError:
-        raise SystemExit(
-            f"Unknown procedure {procedure_name!r}. Try one of: "
-            "crossvalidation, holdout, holdout_ordered, leaveoneout, "
-            "testontrainingdata, learningcurve_cv."
-        )
-
-    procedure_kwargs = {}
-    if ep_type in (
-        EstimationProcedureType.CROSSVALIDATION,
-        EstimationProcedureType.LEARNINGCURVE_CV,
-    ):
-        procedure_kwargs = {"folds": 10, "repeats": 1}
-    elif ep_type is EstimationProcedureType.HOLDOUT:
-        procedure_kwargs = {"percentage": 33, "repeats": 1}
-
-    procedure = EstimationProcedure(type=ep_type, **procedure_kwargs)
-    splits, _, _ = generate_folds(
-        did=args.id, procedure=procedure, seed=FOLD_GENERATION_SEED
+    splits, _, _ = generate_folds_for_task(
+        task_id=args.id,
+        base_url=OpenmlClient(test=args.test).base_url,
+        seed=FOLD_GENERATION_SEED,
     )
     text = splits_to_arff(splits)
 

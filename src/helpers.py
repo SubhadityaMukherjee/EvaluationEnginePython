@@ -9,6 +9,21 @@ import xmltodict
 
 from src.models import DatasetDownloadInfo
 
+# Default API base (production). CLI paths always pass the server resolved
+# from ``OpenmlClient(test=...)``; this default only affects ad-hoc callers
+# (notebooks, ``testing.py``) that don't supply one.
+DEFAULT_API_BASE = "https://www.openml.org/api/v1/"
+
+
+def _server_root(base_url: str) -> str:
+    """Strip the ``/api/v1/`` suffix to get the server root.
+
+    ``OpenmlClient.base_url`` ends in ``/api/v1/``; the ``/data/download/...``
+    host lives outside ``/api/v1/``, so it must be derived from the API base
+    (e.g. ``https://test.openml.org/api/v1/`` → ``https://test.openml.org/``).
+    """
+    return base_url.split("/api/v1/")[0] + "/"
+
 
 def download_and_parse(url: str) -> dict:
     response = requests.get(url)
@@ -60,13 +75,14 @@ def normalize_target_names(target: str | list[str] | None) -> set[str]:
 def get_data_and_meta_information_from_did(
     did: int,
     dataset_type: Literal["arff", "parquet"] = "arff",
+    base_url: str = DEFAULT_API_BASE,
 ) -> DatasetDownloadInfo:
     dataset_type = dataset_type.lower()
 
     if dataset_type not in {"arff", "parquet"}:
         raise ValueError("dataset_type must be 'arff' or 'parquet'")
 
-    metadata = download_and_parse(f"https://www.openml.org/api/v1/xml/data/{did}")[
+    metadata = download_and_parse(f"{base_url}xml/data/{did}")[
         "oml:data_set_description"
     ]
 
@@ -88,34 +104,34 @@ def get_data_and_meta_information_from_did(
 # ============================================================================
 
 
-def get_run_xml(run_id: int) -> dict:
+def get_run_xml(run_id: int, base_url: str = DEFAULT_API_BASE) -> dict:
     """Fetch ``/run/{run_id}`` and return the ``oml:run`` node."""
-    return download_and_parse(f"https://www.openml.org/api/v1/xml/run/{run_id}")[
+    return download_and_parse(f"{base_url}xml/run/{run_id}")[
         "oml:run"
     ]
 
 
-def get_task_xml(task_id: int) -> dict:
+def get_task_xml(task_id: int, base_url: str = DEFAULT_API_BASE) -> dict:
     """Fetch ``/task/{task_id}`` and return the ``oml:task`` node."""
-    return download_and_parse(f"https://www.openml.org/api/v1/xml/task/{task_id}")[
+    return download_and_parse(f"{base_url}xml/task/{task_id}")[
         "oml:task"
     ]
 
 
-def get_task_inputs_xml(task_id: int) -> dict:
+def get_task_inputs_xml(task_id: int, base_url: str = DEFAULT_API_BASE) -> dict:
     """Fetch ``/task/inputs/{task_id}`` and return the ``oml:task_inputs`` node.
 
     Distinct from ``get_task_xml`` — Java's MergeDataset uses
     ``openml.taskInputs(taskId)`` which hits this endpoint, returning the
     structured ``oml:inputs`` form with ``source_data_list`` etc."""
     return download_and_parse(
-        f"https://www.openml.org/api/v1/xml/task/inputs/{task_id}"
+        f"{base_url}xml/task/inputs/{task_id}"
     )["oml:task_inputs"]
 
 
-def get_dataset_description_xml(did: int) -> dict:
+def get_dataset_description_xml(did: int, base_url: str = DEFAULT_API_BASE) -> dict:
     """Fetch ``/data/{did}`` and return the ``oml:data_set_description`` node."""
-    return download_and_parse(f"https://www.openml.org/api/v1/xml/data/{did}")[
+    return download_and_parse(f"{base_url}xml/data/{did}")[
         "oml:data_set_description"
     ]
 
@@ -129,10 +145,11 @@ def run_output_file_ids(run_xml: dict) -> dict[str, str]:
     return {f["oml:name"]: f["oml:file_id"] for f in files}
 
 
-def openml_file_url(file_id: str, filename: str) -> str:
+def openml_file_url(file_id: str, filename: str, base_url: str = DEFAULT_API_BASE) -> str:
     """Build a ``/data/download/{file_id}/{filename}`` URL — Java's
-    ``OpenmlConnector.getOpenmlFileUrl``."""
-    return f"https://www.openml.org/data/download/{file_id}/{filename}"
+    ``OpenmlConnector.getOpenmlFileUrl``. The download host lives outside
+    ``/api/v1/``, so it is derived from ``base_url`` via ``_server_root``."""
+    return f"{_server_root(base_url)}data/download/{file_id}/{filename}"
 
 
 def _task_inputs(task_xml: dict) -> dict[str, dict]:

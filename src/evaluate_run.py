@@ -131,9 +131,10 @@ class EvaluateRun:
         result = RunEvaluation(run_id=run_id, evaluation_engine_id=EVALUATION_ENGINE_ID)
 
         try:
-            run_xml = get_run_xml(run_id)
+            base_url = self._get_client().base_url
+            run_xml = get_run_xml(run_id, base_url)
             task_id = int(run_xml["oml:task_id"])
-            task_xml = get_task_xml(task_id)
+            task_xml = get_task_xml(task_id, base_url)
             task_type_id = int(task_xml["oml:task_type_id"])
 
             if task_type_id not in self.task_type_ids:
@@ -176,6 +177,7 @@ class EvaluateRun:
                 dataset_id=dataset_id,
                 file_ids=file_ids,
                 run_id=run_id,
+                base_url=base_url,
             )
 
             scores = self._compute_scores(
@@ -317,6 +319,7 @@ def _load_run_inputs(
     dataset_id: int,
     file_ids: dict[str, str],
     run_id: int,
+    base_url: str,
 ) -> tuple[pd.DataFrame, Optional[pd.DataFrame], pd.DataFrame]:
     """Download dataset, splits, and predictions for a run.
 
@@ -325,7 +328,7 @@ def _load_run_inputs(
     """
     from src.process_dataset.module import load_dataset
 
-    dataset_df, _ = load_dataset(dataset_id)
+    dataset_df, _ = load_dataset(dataset_id, base_url)
 
     # Splits URL comes from the task's estimation_procedure. Stream tasks (4)
     # and survival (7) — survival still uses splits — handle both.
@@ -337,7 +340,11 @@ def _load_run_inputs(
         splits_df = load_arff_to_df(splits_path)
 
     predictions_path = download_to_temp_file(
-        openml_file_url(file_ids["predictions"], f"Run_{run_id}_predictions.arff"),
+        openml_file_url(
+            file_ids["predictions"],
+            f"Run_{run_id}_predictions.arff",
+            base_url,
+        ),
         suffix=".arff",
     )
     predictions_df = load_arff_to_df(predictions_path)

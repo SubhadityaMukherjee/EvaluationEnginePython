@@ -45,7 +45,7 @@ class MergeDataset:
         # openml-dataset-id column already prepended.
         self.datasets: dict[str, dict] = {}
 
-        ti = get_task_inputs_xml(task_id)
+        ti = get_task_inputs_xml(task_id, self.client.base_url)
         task_type_id = int(ti["oml:task_type_id"])
         if task_type_id in LEARNING_CURVE_TASK_IDS:
             raise ValueError(

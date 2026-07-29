@@ -77,12 +77,13 @@ class ProcessDataset:
         than raised, matching the Java ``processDatasetWithError`` fallthrough.
         """
         client = self._get_client()
+        base_url = client.base_url
         try:
-            dsd = get_dataset_description_xml(did)
+            dsd = get_dataset_description_xml(did, base_url)
             default_target = dsd.get("oml:default_target_attribute")
             status = dsd.get("oml:status")
 
-            info = get_data_and_meta_information_from_did(did)
+            info = get_data_and_meta_information_from_did(did, base_url=base_url)
 
             features = (
                 load_arff_features(
@@ -172,7 +173,9 @@ class ProcessDataset:
         """Port of Java's ``processAndPrint`` — compute features locally and
         print them as XML, without any upload. Java only prints features here
         (no qualities), so we match that."""
-        info = get_data_and_meta_information_from_did(did)
+        info = get_data_and_meta_information_from_did(
+            did, base_url=self._get_client().base_url
+        )
         features = load_arff_features(
             info,
             did=did,
