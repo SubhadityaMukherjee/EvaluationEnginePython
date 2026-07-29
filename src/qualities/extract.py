@@ -2,7 +2,7 @@
 
 Drives dataset-level meta-feature (quality) computation and upload. Two
 characterizer sets, mirroring ``CharacterizerFactory``:
-  * ``simple`` — the base qualities from ``load_arff_qualities``
+  * ``simple`` — the base qualities from ``load_qualities``
     (SimpleMetaFeatures-equivalent counts + pymfe groups). Matches Java's
     ``CharacterizerFactory.simple()`` scope, with pymfe groups added on the
     Python side.
@@ -14,7 +14,7 @@ Deviations from Java (documented):
   * Java's ``FantailConnector.extractFeatures`` removes ``row_id_attribute``
     and ``is_ignore`` columns before characterizing. The Python path computes
     over the full dataset (matching what ``ProcessDataset`` / existing
-    ``load_arff_qualities`` already do). Landmarker values on datasets with
+    ``load_qualities`` already do). Landmarker values on datasets with
     ID-like columns will diverge from Java for this reason.
   * Java polls via ``dataqualitiesUnprocessed`` with the full expected-quality
     list. We do the same, but only the static SimpleMetaFeatures + landmarker
@@ -26,13 +26,12 @@ from __future__ import annotations
 
 from typing import Optional
 
-import arff
-
 from src.client import OpenmlApiError, OpenmlClient
+from src.data_loader import DataLoader
 from src.helpers import get_data_and_meta_information_from_did
-from src.models import DataQuality, DatasetDownloadInfo, Quality
-from src.qualities.arff import load_arff_qualities
+from src.models import DataFormat, DataQuality, DatasetDownloadInfo, Quality
 from src.qualities.landmarkers import compute_all_landmarkers, expected_landmarker_ids
+from src.qualities.loader import load_qualities
 from src.qualities.module import _build_xy
 from src.runs import EVALUATION_ENGINE_ID
 
@@ -72,6 +71,7 @@ class ExtractFeatures:
         mode: str = "normal",
         characterizer_set: str = "simple",
         priority_tag: Optional[str] = None,
+        dataset_format: DataFormat = "arff",
     ) -> None:
         if characterizer_set not in ("simple", "all"):
             raise ValueError(
@@ -81,6 +81,7 @@ class ExtractFeatures:
         self.mode = mode
         self.characterizer_set = characterizer_set
         self.priority_tag = priority_tag
+        self.dataset_format: DataFormat = dataset_format
         self.last_result: Optional[DataQuality] = None
 
     # ----------------------------------------------------------------------
@@ -90,9 +91,12 @@ class ExtractFeatures:
     def process(self, did: int) -> DataQuality:
         """Compute qualities for one dataset and upload. Returns the
         ``DataQuality`` (Java uploads as a side effect — same here)."""
-        info = get_data_and_meta_information_from_did(did, base_url=self.client.base_url)
-        data_quality = load_arff_qualities(
+        info = get_data_and_meta_information_from_did(
+            did, dataset_type=self.dataset_format, base_url=self.client.base_url
+        )
+        data_quality = load_qualities(
             info,
+            data_format=self.dataset_format,
             did=did,
             evaluation_engine_id=EVALUATION_ENGINE_ID,
         )
@@ -128,10 +132,9 @@ class ExtractFeatures:
         from src.helpers import normalize_target_names
 
         try:
-            with open(info.file_path, "r", encoding="utf-8", errors="replace") as f:
-                payload = arff.load(f)
+            attributes, rows = DataLoader(self.dataset_format).load(info)
             target_names = normalize_target_names(info.default_target_attribute)
-            X, y = _build_xy(payload["attributes"], payload["data"], target_names)
+            X, y = _build_xy(attributes, rows, target_names)
             landmark_values = compute_all_landmarkers(X, y)
         except Exception:  # noqa: BLE001 — Java parity: landmarkers fail soft
             return

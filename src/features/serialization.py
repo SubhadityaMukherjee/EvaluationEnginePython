@@ -1,11 +1,16 @@
 import xmltodict
 
-from src.models import (_OML_BOOL_FIELDS, _OML_FLOAT_FIELDS, _OML_INT_FIELDS,
-                        DataFeature, Feature)
+from src.models import (
+    _OML_BOOL_FIELDS,
+    _OML_FLOAT_FIELDS,
+    _OML_INT_FIELDS,
+    DataFeature,
+    Feature,
+)
 
 
 def feature_to_oml_dict(feat: Feature) -> dict:
-    result = {
+    result: dict[str, object] = {
         "oml:index": str(feat.index),
         "oml:name": feat.name,
         "oml:data_type": feat.data_type,

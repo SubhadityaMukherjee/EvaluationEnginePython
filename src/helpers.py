@@ -1,5 +1,5 @@
 from tempfile import NamedTemporaryFile
-from typing import Iterable, Literal
+from typing import Iterable
 
 import arff
 import numpy as np
@@ -7,7 +7,7 @@ import pandas as pd
 import requests
 import xmltodict
 
-from src.models import DatasetDownloadInfo
+from src.models import DataFormat, DatasetDownloadInfo
 
 # Default API base (production). CLI paths always pass the server resolved
 # from ``OpenmlClient(test=...)``; this default only affects ad-hoc callers
@@ -74,7 +74,7 @@ def normalize_target_names(target: str | list[str] | None) -> set[str]:
 
 def get_data_and_meta_information_from_did(
     did: int,
-    dataset_type: Literal["arff", "parquet"] = "arff",
+    dataset_type: DataFormat = "arff",
     base_url: str = DEFAULT_API_BASE,
 ) -> DatasetDownloadInfo:
     dataset_type = dataset_type.lower()

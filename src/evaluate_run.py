@@ -18,20 +18,32 @@ Out of scope (marked with TODOs):
 
 from __future__ import annotations
 
-from typing import Optional
+import contextlib
 
 import numpy as np
 import pandas as pd
 
 from src.client import OpenmlApiError, OpenmlClient
-from src.helpers import (download_to_temp_file, get_run_xml, get_task_xml,
-                         load_arff_to_df, openml_file_url, run_output_file_ids,
-                         task_cost_matrix, task_estimation_procedure,
-                         task_source_data)
-from src.models import EstimationProcedureType, RunEvaluation
-from src.runs import (EVALUATION_ENGINE_ID, SUPPORTED_TASK_TYPES_EVALUATION,
-                      TASK_TYPE_ID_TO_TASK_TYPE, TaskType, evaluate_batch,
-                      evaluate_stream, evaluate_survival)
+from src.helpers import (
+    download_to_temp_file,
+    get_run_xml,
+    get_task_xml,
+    load_arff_to_df,
+    openml_file_url,
+    run_output_file_ids,
+    task_cost_matrix,
+    task_estimation_procedure,
+    task_source_data,
+)
+from src.models import DataFormat, EstimationProcedureType, RunEvaluation
+from src.runs import (
+    EVALUATION_ENGINE_ID,
+    SUPPORTED_TASK_TYPES_EVALUATION,
+    TASK_TYPE_ID_TO_TASK_TYPE,
+    evaluate_batch,
+    evaluate_stream,
+    evaluate_survival,
+)
 
 _MAX_LENGTH_WARNING = 1024
 
@@ -52,7 +64,7 @@ _PROCEDURE_TYPE_MAP: dict[str, EstimationProcedureType] = {
 }
 
 
-def _estimation_procedure_type(task_xml: dict) -> Optional[EstimationProcedureType]:
+def _estimation_procedure_type(task_xml: dict) -> EstimationProcedureType | None:
     ep = task_estimation_procedure(task_xml)
     if not ep:
         return None
@@ -60,7 +72,7 @@ def _estimation_procedure_type(task_xml: dict) -> Optional[EstimationProcedureTy
     return _PROCEDURE_TYPE_MAP.get(type_str)
 
 
-def _cost_matrix_from_task(task_xml: dict) -> Optional[np.ndarray]:
+def _cost_matrix_from_task(task_xml: dict) -> np.ndarray | None:
     """Parse the ``cost_matrix`` input into a numpy matrix, if present.
 
     Java delegates to ``TaskInformation.getCostMatrix(task)`` and
@@ -91,13 +103,14 @@ class EvaluateRun:
 
     def __init__(
         self,
-        run_id: Optional[int] = None,
+        run_id: int | None = None,
         evaluation_mode: str = "normal",
-        task_type_ids: Optional[set[int]] = None,
-        task_ids: Optional[str] = None,
-        tag: Optional[str] = None,
-        uploader_id: Optional[int] = None,
-        client: Optional[OpenmlClient] = None,
+        task_type_ids: set[int] | None = None,
+        task_ids: str | None = None,
+        tag: str | None = None,
+        uploader_id: int | None = None,
+        client: OpenmlClient | None = None,
+        dataset_format: DataFormat = "arff",
     ) -> None:
         self.evaluation_mode = evaluation_mode
         self.task_type_ids = (
@@ -107,7 +120,8 @@ class EvaluateRun:
         self.tag = tag
         self.uploader_id = uploader_id
         self._client = client
-        self.last_result: Optional[RunEvaluation] = None
+        self._dataset_format: DataFormat = dataset_format
+        self.last_result: RunEvaluation | None = None
 
         if run_id is not None:
             self.last_result = self.evaluate(run_id)
@@ -178,6 +192,7 @@ class EvaluateRun:
                 file_ids=file_ids,
                 run_id=run_id,
                 base_url=base_url,
+                data_format=self._dataset_format,
             )
 
             scores = self._compute_scores(
@@ -211,12 +226,10 @@ class EvaluateRun:
                 evaluation_engine_id=EVALUATION_ENGINE_ID,
                 error=str(e)[:_MAX_LENGTH_WARNING],
             )
-            try:
+            # Java logs and gives up here — the run will stay unevaluated and
+            # be retried on the next polling pass.
+            with contextlib.suppress(Exception):
                 client.run_evaluate_upload(error_eval)
-            except Exception:
-                # Java logs and gives up here — the run will stay unevaluated
-                # and be retried on the next polling pass.
-                pass
 
     # ----------------------------------------------------------------------
     # Score assembly
@@ -228,7 +241,7 @@ class EvaluateRun:
         task_type_id: int,
         task_xml: dict,
         dataset_df: pd.DataFrame,
-        splits_df: Optional[pd.DataFrame],
+        splits_df: pd.DataFrame | None,
         predictions_df: pd.DataFrame,
         target_feature: str,
     ) -> list:
@@ -250,6 +263,8 @@ class EvaluateRun:
             return scores
 
         task_type = TASK_TYPE_ID_TO_TASK_TYPE[task_type_id]
+        if task_type is None:
+            raise ValueError(f"No evaluator mapping for task_type_id {task_type_id}.")
         if splits_df is None:
             raise ValueError("Splits required for batch evaluation tasks.")
 
@@ -320,7 +335,8 @@ def _load_run_inputs(
     file_ids: dict[str, str],
     run_id: int,
     base_url: str,
-) -> tuple[pd.DataFrame, Optional[pd.DataFrame], pd.DataFrame]:
+    data_format: DataFormat = "arff",
+) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame]:
     """Download dataset, splits, and predictions for a run.
 
     Returns ``(dataset_df, splits_df, predictions_df)``. ``splits_df`` is
@@ -328,11 +344,11 @@ def _load_run_inputs(
     """
     from src.process_dataset.module import load_dataset
 
-    dataset_df, _ = load_dataset(dataset_id, base_url)
+    dataset_df, _ = load_dataset(dataset_id, base_url, data_format=data_format)
 
     # Splits URL comes from the task's estimation_procedure. Stream tasks (4)
     # and survival (7) — survival still uses splits — handle both.
-    splits_df: Optional[pd.DataFrame] = None
+    splits_df: pd.DataFrame | None = None
     ep = task_estimation_procedure(task_xml)
     splits_url = ep.get("oml:data_splits_url") if ep else None
     if splits_url:

@@ -1,12 +1,23 @@
-import arff
+"""Dataset → ``DataFeature`` extraction (format-agnostic).
 
+The actual file parsing lives in :class:`src.data_loader.DataLoader`; this
+module owns the per-column statistical filling (``Feature`` objects) and is
+unaware of whether the source was ARFF or Parquet.
+"""
+
+from src.data_loader import DataLoader
 from src.features.module import _fill_nominal_feature, _fill_numeric_feature
 from src.helpers import normalize_target_names
-from src.models import (_NUMERIC_TYPES, DataFeature, DatasetDownloadInfo,
-                        Feature)
+from src.models import (_NUMERIC_TYPES, DataFeature, DataFormat,
+                        DatasetDownloadInfo, Feature)
 
 
 def _liac_type(type_spec):
+    """Normalize an ARFF-style ``type_spec`` into ``(type_name, type_range)``.
+
+    Shared between the ARFF and Parquet backends because both produce the same
+    ``liac-arff``-shaped ``type_spec`` values (see ``DataLoader``).
+    """
     if isinstance(type_spec, list):
         return "nominal", tuple(type_spec)
 
@@ -21,30 +32,32 @@ def _liac_type(type_spec):
     }.get(normalized, (normalized.lower(), None))
 
 
-def load_arff_features(
+def load_features(
     dataset: DatasetDownloadInfo,
     *,
+    data_format: DataFormat = "arff",
     did: int | None = None,
     evaluation_engine_id: int | None = None,
 ) -> DataFeature:
-    try:
-        with open(
-            dataset.file_path,
-            "r",
-            encoding="utf-8",
-            errors="replace",
-        ) as f:
-            data = arff.load(f)
+    """Extract a :class:`DataFeature` from a downloaded dataset.
 
+    Parameters
+    ----------
+    dataset:
+        Already-downloaded dataset (``file_path`` points at an ``.arff`` or
+        ``.parquet`` file depending on how it was fetched).
+    data_format:
+        ``"arff"`` (default) or ``"parquet"`` — selects the
+        :class:`~src.data_loader.DataLoader` backend.
+    """
+    try:
+        attributes, rows = DataLoader(data_format).load(dataset)
     except Exception as exc:
         return DataFeature(
             did=did,
             evaluation_engine_id=evaluation_engine_id,
             error=str(exc),
         )
-
-    attributes = data["attributes"]
-    rows = data["data"]
 
     target_names = normalize_target_names(dataset.default_target_attribute)
 
