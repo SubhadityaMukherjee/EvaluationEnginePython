@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import Optional, Sequence
+from collections.abc import Callable, Sequence
 
 from src.runs import SUPPORTED_TASK_TYPES_EVALUATION
 
@@ -176,7 +176,13 @@ def _cmd_evaluate_run(args: argparse.Namespace) -> None:
         raise SystemExit("evaluate_run requires --id <run_id>.")
 
     if args.mode is not None:
-        ttids = {int(args.mode)}
+        try:
+            ttids = {int(args.mode)}
+        except ValueError:
+            raise SystemExit(
+                "evaluate_run --mode must be an integer task-type id "
+                f"(got {args.mode!r})."
+            ) from None
     else:
         ttids = set(SUPPORTED_TASK_TYPES_EVALUATION)
 
@@ -278,8 +284,11 @@ def _cmd_generate_folds(args: argparse.Namespace) -> None:
     text = splits_to_arff(splits)
 
     if args.output:
-        with open(args.output, "w", encoding="utf-8") as f:
-            f.write(text)
+        try:
+            with open(args.output, "w", encoding="utf-8") as f:
+                f.write(text)
+        except OSError as e:
+            raise SystemExit(f"Could not write to {args.output}: {e}") from None
         print(f"wrote {len(splits)} split rows to {args.output}")
     else:
         print(text)
@@ -325,8 +334,11 @@ def _cmd_merge_datasets(args: argparse.Namespace) -> None:
     md = MergeDataset(task_id=args.id, client=client)
     text = md.merge()
     if args.output:
-        with open(args.output, "w", encoding="utf-8") as f:
-            f.write(text)
+        try:
+            with open(args.output, "w", encoding="utf-8") as f:
+                f.write(text)
+        except OSError as e:
+            raise SystemExit(f"Could not write to {args.output}: {e}") from None
         print(f"wrote merged ARFF to {args.output}", file=sys.stderr)
     else:
         print(text)
@@ -342,7 +354,7 @@ def _not_implemented(function: str) -> None:
 # Entry point
 # ============================================================================
 
-_DISPATCH: dict[str, callable] = {
+_DISPATCH: dict[str, Callable[[argparse.Namespace], None]] = {
     "evaluate_run": _cmd_evaluate_run,
     "process_dataset": _cmd_process_dataset,
     "process_dataset_print": _cmd_process_dataset_print,
@@ -356,7 +368,7 @@ _DISPATCH: dict[str, callable] = {
 }
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
     handler = _DISPATCH.get(args.function)
