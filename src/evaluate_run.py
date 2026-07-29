@@ -2,16 +2,18 @@
 
 Single-run path is fully wired: fetch run/task/dataset/predictions/splits via
 the raw OpenML REST API (openml.runs.get_run has a parser bug for multi-dataset
-runs), dispatch to the right evaluator in ``src.runs``, and return a
-``RunEvaluation`` with both per-cell and global scores.
+runs), dispatch to the right evaluator in ``src.runs``, and upload a
+``RunEvaluation`` to ``POST /run/evaluate`` via ``src.client.OpenmlClient``.
+
+The polling loop (``evaluationRequest`` → evaluate each run → repeat until the
+server returns error 1013 / ``NO_UNEVALUATED_RUNS``) is also wired.
 
 Out of scope (marked with TODOs):
-  * the polling loop that asks the server for the next batch of unevaluated
-    runs (``evaluationRequest``) — only useful once uploads land.
-  * trace parsing (``traceToXML``) — only useful once ``runTraceUpload`` lands.
+  * trace parsing (``traceToXML``) — the ``runTraceUpload`` call site is
+    marked in ``_upload``; it never fires today because trace parsing isn't
+    ported, so the client method is deliberately omitted too.
   * run-description parsing and the consistency check against user-defined
     measures (EvaluateRun.java:180-217).
-  * all upload paths (``runEvaluate``, ``runTraceUpload``).
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
+from src.client import OpenmlApiError, OpenmlClient
 from src.helpers import (download_to_temp_file, get_run_xml, get_task_xml,
                          load_arff_to_df, openml_file_url, run_output_file_ids,
                          task_cost_matrix, task_estimation_procedure,
@@ -31,6 +34,10 @@ from src.runs import (EVALUATION_ENGINE_ID, SUPPORTED_TASK_TYPES_EVALUATION,
                       evaluate_stream, evaluate_survival)
 
 _MAX_LENGTH_WARNING = 1024
+
+# ApiErrorMapping.NO_UNEVALUATED_RUNS — server returns this when the polling
+# loop has nothing left to hand out. EvaluateRun.java:88 catches it to break.
+_CODE_NO_UNEVALUATED_RUNS = 1013
 
 # Task XML estimation_procedure/oml:type → EstimationProcedureType.
 # Source: org.openml.apiconnector.xml.EstimationProcedureType.
@@ -79,8 +86,8 @@ class EvaluateRun:
     """Port of ``EvaluateRun``. Construct with a ``run_id`` to evaluate one
     run immediately; construct without one to get an instance ready for
     ``poll``. The ``RunEvaluation`` from the last call is kept on
-    ``self.last_result`` for inspection (Java uploads it as a side effect —
-    TODO here)."""
+    ``self.last_result`` for inspection; the upload happens as a side effect
+    of ``evaluate`` (Java does the same)."""
 
     def __init__(
         self,
@@ -90,6 +97,7 @@ class EvaluateRun:
         task_ids: Optional[str] = None,
         tag: Optional[str] = None,
         uploader_id: Optional[int] = None,
+        client: Optional[OpenmlClient] = None,
     ) -> None:
         self.evaluation_mode = evaluation_mode
         self.task_type_ids = (
@@ -98,10 +106,19 @@ class EvaluateRun:
         self.task_ids = task_ids
         self.tag = tag
         self.uploader_id = uploader_id
+        self._client = client
         self.last_result: Optional[RunEvaluation] = None
 
         if run_id is not None:
             self.last_result = self.evaluate(run_id)
+
+    def _get_client(self) -> OpenmlClient:
+        """Lazily construct the REST client so direct construction
+        (``EvaluateRun()``) doesn't require ``OPENML_API_KEY`` until
+        ``evaluate`` / ``poll`` actually runs."""
+        if self._client is None:
+            self._client = OpenmlClient()
+        return self._client
 
     # ----------------------------------------------------------------------
     # Single-run path
@@ -109,14 +126,15 @@ class EvaluateRun:
 
     def evaluate(self, run_id: int) -> RunEvaluation:
         """Port of ``EvaluateRun.evaluate``. Returns the assembled
-        ``RunEvaluation`` (Java returns void — the side effect there is the
-        upload, which is TODO here)."""
+        ``RunEvaluation``; the upload to ``/run/evaluate`` happens as a side
+        effect via ``_upload`` (mirroring Java's void return)."""
         result = RunEvaluation(run_id=run_id, evaluation_engine_id=EVALUATION_ENGINE_ID)
 
         try:
-            run_xml = get_run_xml(run_id)
+            base_url = self._get_client().base_url
+            run_xml = get_run_xml(run_id, base_url)
             task_id = int(run_xml["oml:task_id"])
-            task_xml = get_task_xml(task_id)
+            task_xml = get_task_xml(task_id, base_url)
             task_type_id = int(task_xml["oml:task_type_id"])
 
             if task_type_id not in self.task_type_ids:
@@ -135,7 +153,7 @@ class EvaluateRun:
             # Java short-circuits if description / predictions are missing.
             if "description" not in file_ids:
                 result.error = "Run description file not present."
-                # TODO: apiconnector.runEvaluate(result)
+                self._upload(result)
                 return result
             if not any(
                 k in file_ids for k in ("predictions", "subgroups", "predictions_0")
@@ -143,11 +161,12 @@ class EvaluateRun:
                 result.error = (
                     "Required output files not present (e.g., arff predictions)."
                 )
-                # TODO: apiconnector.runEvaluate(result)
+                self._upload(result)
                 return result
 
             # TODO: trace parsing. If "trace" in file_ids:
             #   trace = self._trace_to_xml(file_ids["trace"], task_id, run_id)
+            # And in _upload: if trace is not None: client.run_trace_upload(trace).
 
             # TODO: download description XML, parse to Run description, run the
             # consistency check against user-defined measures
@@ -158,6 +177,7 @@ class EvaluateRun:
                 dataset_id=dataset_id,
                 file_ids=file_ids,
                 run_id=run_id,
+                base_url=base_url,
             )
 
             scores = self._compute_scores(
@@ -173,8 +193,30 @@ class EvaluateRun:
         except Exception as exc:  # noqa: BLE001 — mirrors Java's catch-all
             result.error = str(exc)[:_MAX_LENGTH_WARNING]
 
-        # TODO: apiconnector.runEvaluate(result) + runTraceUpload(trace).
+        self._upload(result)
         return result
+
+    def _upload(self, result: RunEvaluation) -> None:
+        """Port of EvaluateRun.java:228-245 — upload the evaluation, and if
+        the upload itself fails with an ``OpenmlApiError``, upload a fresh
+        error-only evaluation in its place. Other exceptions propagate (Java
+        catches and logs, but in Python the CLI top-level handles that)."""
+        client = self._get_client()
+        try:
+            client.run_evaluate_upload(result)
+            # TODO: if trace is not None: client.run_trace_upload(trace)
+        except OpenmlApiError as e:
+            error_eval = RunEvaluation(
+                run_id=result.run_id,
+                evaluation_engine_id=EVALUATION_ENGINE_ID,
+                error=str(e)[:_MAX_LENGTH_WARNING],
+            )
+            try:
+                client.run_evaluate_upload(error_eval)
+            except Exception:
+                # Java logs and gives up here — the run will stay unevaluated
+                # and be retried on the next polling pass.
+                pass
 
     # ----------------------------------------------------------------------
     # Score assembly
@@ -229,19 +271,41 @@ class EvaluateRun:
     def poll(self) -> None:
         """Port of EvaluateRun.java:57-94.
 
-        Original behaviour: build a filter map (ttid, task, tag, uploader),
-        call ``evaluationRequest`` in a loop with ``numRequests=1000``, and
-        evaluate each returned run. Stops when the server returns
-        ``NO_UNEVALUATED_RUNS`` (API error 1013).
-        """
-        # TODO: implement once the upload path lands. Without uploads the loop
-        # has no observable side effect, so we refuse to spin rather than burn
-        # the server. Filters would be:
-        #   {"ttid": self.task_type_ids, "task": self.task_ids,
-        #    "tag": self.tag, "uploader": self.uploader_id}
-        raise NotImplementedError(
-            "EvaluateRun polling loop is not implemented yet — pass a run_id."
-        )
+        Builds the filter map (``ttid`` / ``task`` / ``tag`` / ``uploader``),
+        calls ``evaluationRequest`` with ``numRequests=1000`` in a loop, and
+        evaluates each returned run. Stops when the server returns
+        ``NO_UNEVALUATED_RUNS`` (API error 1013 — Java catches the same code
+        at EvaluateRun.java:88)."""
+        client = self._get_client()
+
+        # Java only adds a filter when the corresponding arg is non-null. We
+        # do the same — an unset field means "no filter", letting the server
+        # pick its default rather than locking to the supported-type set.
+        filters: dict[str, str] = {}
+        if self.task_type_ids:
+            # Java formats ttids via Arrays.toString → "1,2,3" (no spaces).
+            filters["ttid"] = ",".join(str(t) for t in sorted(self.task_type_ids))
+        if self.task_ids:
+            filters["task"] = self.task_ids
+        if self.tag:
+            filters["tag"] = self.tag
+        if self.uploader_id is not None:
+            filters["uploader"] = str(self.uploader_id)
+
+        while True:
+            try:
+                run_ids = client.evaluation_request(
+                    EVALUATION_ENGINE_ID,
+                    self.evaluation_mode,
+                    num_requests=1000,
+                    filters=filters or None,
+                )
+            except OpenmlApiError as e:
+                if e.code == _CODE_NO_UNEVALUATED_RUNS:
+                    return
+                raise
+            for rid in run_ids:
+                self.evaluate(rid)
 
 
 # ============================================================================
@@ -255,6 +319,7 @@ def _load_run_inputs(
     dataset_id: int,
     file_ids: dict[str, str],
     run_id: int,
+    base_url: str,
 ) -> tuple[pd.DataFrame, Optional[pd.DataFrame], pd.DataFrame]:
     """Download dataset, splits, and predictions for a run.
 
@@ -263,7 +328,7 @@ def _load_run_inputs(
     """
     from src.process_dataset.module import load_dataset
 
-    dataset_df, _ = load_dataset(dataset_id)
+    dataset_df, _ = load_dataset(dataset_id, base_url)
 
     # Splits URL comes from the task's estimation_procedure. Stream tasks (4)
     # and survival (7) — survival still uses splits — handle both.
@@ -275,7 +340,11 @@ def _load_run_inputs(
         splits_df = load_arff_to_df(splits_path)
 
     predictions_path = download_to_temp_file(
-        openml_file_url(file_ids["predictions"], f"Run_{run_id}_predictions.arff"),
+        openml_file_url(
+            file_ids["predictions"],
+            f"Run_{run_id}_predictions.arff",
+            base_url,
+        ),
         suffix=".arff",
     )
     predictions_df = load_arff_to_df(predictions_path)
