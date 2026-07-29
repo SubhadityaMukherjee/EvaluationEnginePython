@@ -26,9 +26,7 @@ def _compute_dataset_qualities(
     n_instances = len(rows)
     n_features = len(attributes)
 
-    target_type_spec = (
-        attr_types[target_idx] if target_idx is not None else None
-    )
+    target_type_spec = attr_types[target_idx] if target_idx is not None else None
     target_is_numeric = isinstance(target_type_spec, str) and (
         target_type_spec.upper() in _NUMERIC_TYPES
     )
@@ -86,9 +84,13 @@ def _compute_dataset_qualities(
             n_symbolic += 1
             if len(type_spec) == 2:
                 n_binary += 1
-        elif isinstance(
-            type_spec, str,
-        ) and type_spec.upper() in _NUMERIC_TYPES:
+        elif (
+            isinstance(
+                type_spec,
+                str,
+            )
+            and type_spec.upper() in _NUMERIC_TYPES
+        ):
             n_numeric += 1
             col = (row[i] for row in rows)
             if len({v for v in col if v is not None}) == 2:
@@ -139,7 +141,47 @@ def _compute_dataset_qualities(
             add("MajorityClassPercentage", None)
             add("MinorityClassPercentage", None)
 
+    add("AutoCorrelation", _autocorrelation(rows, target_idx, target_is_numeric, n_instances))
+
     return qualities
+
+
+def _autocorrelation(
+    rows,
+    target_idx: int | None,
+    target_is_numeric: bool,
+    n_instances: int,
+) -> float | None:
+    """Port of ``SimpleMetaFeatures`` AutoCorrelation (Java lines 100-124).
+
+    Nominal target: counts how often consecutive class labels differ, then
+    returns ``(N-1-changes)/(N-1)``. Numeric target: same formula but
+    ``changes`` is the sum of absolute consecutive differences. Undefined
+    (returns None) if any target value is missing — Java bails on the first
+    NaN via ``classCur.isNaN()``. N<=1 returns 1.0 (Java parity)."""
+    if target_idx is None or n_instances == 0:
+        return None
+
+    time_based_changes = 0.0
+    class_cur = rows[0][target_idx]
+    for i in range(1, n_instances):
+        class_prev = class_cur
+        class_cur = rows[i][target_idx]
+        # Java checks classCur.isNaN() and breaks; None is our missing marker.
+        if class_cur is None:
+            return None
+        if target_is_numeric:
+            # Java doesn't guard the first value; if it was missing, math
+            # produces NaN upstream. We surface that as undefined.
+            if class_prev is None:
+                return None
+            time_based_changes += abs(class_prev - class_cur)
+        else:
+            time_based_changes += 0 if class_prev == class_cur else 1
+
+    if n_instances > 1:
+        return (n_instances - 1 - time_based_changes) / (n_instances - 1.0)
+    return 1.0
 
 
 def _build_xy(
@@ -160,13 +202,9 @@ def _build_xy(
 
     arr = np.array(rows, dtype=object)
 
-    feature_idxs = [
-        i for i in range(len(attr_names)) if i != target_idx
-    ]
+    feature_idxs = [i for i in range(len(attr_names)) if i != target_idx]
 
-    X_full = pd.DataFrame(
-        {attr_names[i]: arr[:, i] for i in feature_idxs}
-    )
+    X_full = pd.DataFrame({attr_names[i]: arr[:, i] for i in feature_idxs})
     y_raw = arr[:, target_idx]
 
     y_obj = np.asarray(y_raw, dtype=object)
@@ -181,11 +219,7 @@ def _build_xy(
     multi_word_cols = [
         c
         for c in string_cols
-        if X_full[c]
-        .dropna()
-        .astype(str)
-        .str.contains(r"\s")
-        .any()
+        if X_full[c].dropna().astype(str).str.contains(r"\s").any()
     ]
     X_clean = X_full.drop(columns=multi_word_cols)
 

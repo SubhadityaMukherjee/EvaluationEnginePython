@@ -1,9 +1,6 @@
 import xmltodict
 
-from src.models import (
-    DataQuality,
-)
-from src.models import Quality
+from src.models import DataQuality, Quality
 
 
 def quality_to_oml_dict(qua: Quality) -> dict:
@@ -17,9 +14,7 @@ def qualities_to_oml_dict(data_quality: DataQuality) -> dict:
     return {
         "oml:data_qualities": {
             "@xmlns:oml": "http://openml.org/openml",
-            "oml:quality": [
-                quality_to_oml_dict(q) for q in data_quality.qualities
-            ],
+            "oml:quality": [quality_to_oml_dict(q) for q in data_quality.qualities],
         }
     }
 

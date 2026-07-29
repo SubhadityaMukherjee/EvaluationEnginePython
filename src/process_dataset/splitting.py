@@ -4,7 +4,8 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import StratifiedKFold, KFold, LeaveOneOut, ShuffleSplit
+from sklearn.model_selection import (KFold, LeaveOneOut, ShuffleSplit,
+                                     StratifiedKFold)
 
 from src.models import EstimationProcedure
 

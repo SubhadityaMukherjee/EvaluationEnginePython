@@ -5,22 +5,27 @@ CLI dispatcher mirroring Main.java. Run as ``python -m src.main --help``.
 Supported functions (``-f`` / ``--function``):
   * ``evaluate_run``         — port of EvaluateRun; needs ``--id``.
   * ``process_dataset``      — port of ProcessDataset; ``--id`` to process one
-                               dataset, omit to poll (currently raises
-                               NotImplementedError).
+                               dataset, omit to poll.
   * ``process_dataset_print``— local feature extraction, prints XML.
+  * ``extract_features_simple``— port of FantailConnector (simple set); ``--id``
+                               for one dataset, omit to poll.
+  * ``extract_features_all`` — port of FantailConnector (all set, including
+                               the sklearn landmarker port); ``--id`` for one
+                               dataset, omit to poll.
+  * ``merge_datasets``       — port of MergeDataset; needs ``--id`` (MultiTask
+                               task id); writes merged ARFF to ``--output`` or
+                               stdout.
   * ``generate_folds``       — wraps src.process_dataset.generate_folds.
 
 Unsupported functions (matching Main.java's fallthrough branch):
-  * ``extract_features_all``, ``extract_features_simple`` — FantailConnector
-    port not in scope; the Python qualities module uses pymfe, not Weka's
-    fantail characterizers, so the mapping is not 1:1.
-  * ``merge_datasets``       — MergeDataset.java not ported.
   * ``all_wrong``, ``different_predictions`` — InstanceBased.java not ported.
   * ``challenge``            — ChallengeSets.java not ported.
 
 Each prints a clear NotImplementedError when invoked. The Java options are
 mapped 1:1 (``-id`` → ``--id``, ``-u`` → ``--user``, etc.) with both short and
-long forms accepted.
+long forms accepted. Note: Java's ``-test`` (holdout rowids for fold
+generation) is NOT ported — ``-test`` / ``--test`` here targets
+``test.openml.org`` (see ``OpenmlClient``).
 """
 
 from __future__ import annotations
@@ -29,10 +34,8 @@ import argparse
 import sys
 from typing import Optional, Sequence
 
-# Maps Java's Settings.SUPPORTED_TASK_TYPES_EVALUATION.
 from src.runs import SUPPORTED_TASK_TYPES_EVALUATION
 
-# Java's Main.FOLD_GENERATION_SEED.
 FOLD_GENERATION_SEED = 0
 
 
@@ -48,40 +51,103 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     # Identity / scope options.
-    p.add_argument("-id", "--id", type=int, default=None,
-                   help="The id of the dataset/run used.")
-    p.add_argument("-u", "--user", type=int, default=None,
-                   help="The user id (uploader filter for evaluate_run).")
-    p.add_argument("-t", "--task", type=str, default=None,
-                   help="The task id (or comma-separated list).")
-    p.add_argument("-r", "--run", type=str, default=None,
-                   help="The run id (comma-separated for some functions).")
-    p.add_argument("-f", "--function", type=str, required=True,
-                   help="The function to invoke (see module docstring).")
+    p.add_argument(
+        "-id", "--id", type=int, default=None, help="The id of the dataset/run used."
+    )
+    p.add_argument(
+        "-u",
+        "--user",
+        type=int,
+        default=None,
+        help="The user id (uploader filter for evaluate_run).",
+    )
+    p.add_argument(
+        "-t",
+        "--task",
+        type=str,
+        default=None,
+        help="The task id (or comma-separated list).",
+    )
+    p.add_argument(
+        "-r",
+        "--run",
+        type=str,
+        default=None,
+        help="The run id (comma-separated for some functions).",
+    )
+    p.add_argument(
+        "-f",
+        "--function",
+        type=str,
+        required=True,
+        help="The function to invoke (see module docstring).",
+    )
 
     # Behavior flags.
-    p.add_argument("-x", "--random", action="store_true",
-                   help="Pick a random id rather than the next one in order.")
-    p.add_argument("-reverse", "--reverse", action="store_true",
-                   help="Start evaluating from the last runs.")
-    p.add_argument("-v", "--verbose", action="store_true",
-                   help="Verbose output.")
-    p.add_argument("-m", "--md5", action="store_true",
-                   help="Present the splits file output as an md5 hash.")
+    p.add_argument(
+        "-x",
+        "--random",
+        action="store_true",
+        help="Pick a random id rather than the next one in order.",
+    )
+    p.add_argument(
+        "-reverse",
+        "--reverse",
+        action="store_true",
+        help="Start evaluating from the last runs.",
+    )
+    p.add_argument("-v", "--verbose", action="store_true", help="Verbose output.")
+    p.add_argument(
+        "-m",
+        "--md5",
+        action="store_true",
+        help="Present the splits file output as an md5 hash.",
+    )
 
     # String / numeric modifiers.
-    p.add_argument("-config", "--config", type=str, default=None,
-                   help="Config string describing the settings for API interaction.")
-    p.add_argument("-o", "--output", type=str, default=None,
-                   help="The output file path (or offset, for challenge).")
-    p.add_argument("-test", "--test", type=str, default=None,
-                   help="A list of rowids for a holdout set (fold generation).")
-    p.add_argument("-tag", "--tag", type=str, default=None,
-                   help="A tag that will get priority in processing fantail features.")
-    p.add_argument("-mode", "--mode", type=str, default=None,
-                   help="{train,test} for challenge; ttid override for evaluate_run.")
-    p.add_argument("-size", "--size", type=int, default=None,
-                   help="Desired size of train/test set.")
+    p.add_argument(
+        "-config",
+        "--config",
+        type=str,
+        default=None,
+        help="Config string describing the settings for API interaction.",
+    )
+    p.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default=None,
+        help="The output file path (or offset, for challenge).",
+    )
+    p.add_argument(
+        "-tag",
+        "--tag",
+        type=str,
+        default=None,
+        help="A tag that will get priority in processing features.",
+    )
+    p.add_argument(
+        "-mode",
+        "--mode",
+        type=str,
+        default=None,
+        help="{train,test} for challenge; ttid override for evaluate_run.",
+    )
+    p.add_argument(
+        "-size",
+        "--size",
+        type=int,
+        default=None,
+        help="Desired size of train/test set.",
+    )
+    p.add_argument(
+        "-test",
+        "--test",
+        action="store_true",
+        help="Target test.openml.org instead of production (default api key "
+        "'normaluser'; used by process_dataset/evaluate_run/extract_features/"
+        "merge_datasets).",
+    )
 
     return p
 
@@ -92,8 +158,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _cmd_evaluate_run(args: argparse.Namespace) -> None:
-    """Port of Main.java:98-112. ``--mode`` overrides the supported task-type
+    """``--mode`` overrides the supported task-type
     set with a single ttid; otherwise all of SUPPORTED_TASK_TYPES_EVALUATION."""
+    from src.client import OpenmlClient
     from src.evaluate_run import EvaluateRun
 
     if args.id is None:
@@ -104,10 +171,12 @@ def _cmd_evaluate_run(args: argparse.Namespace) -> None:
     else:
         ttids = set(SUPPORTED_TASK_TYPES_EVALUATION)
 
-    evaluation_mode = "reverse" if args.reverse else ("random" if args.random else "normal")
+    evaluation_mode = (
+        "reverse" if args.reverse else ("random" if args.random else "normal")
+    )
 
-    # Note: constructor evaluates the run and stores the result on
-    # ``.last_result``. Java uploads the result server-side; that path is TODO.
+    # Constructor evaluates the run and stores the result on ``.last_result``;
+    # the upload to /run/evaluate happens as a side effect of evaluate().
     er = EvaluateRun(
         run_id=args.id,
         evaluation_mode=evaluation_mode,
@@ -115,6 +184,7 @@ def _cmd_evaluate_run(args: argparse.Namespace) -> None:
         task_ids=args.task,
         tag=args.tag,
         uploader_id=args.user,
+        client=OpenmlClient(test=args.test),
     )
     r = er.last_result
     if r is None:
@@ -124,24 +194,27 @@ def _cmd_evaluate_run(args: argparse.Namespace) -> None:
     else:
         per_cell = sum(1 for s in r.scores if s.fold is not None)
         glob = sum(1 for s in r.scores if s.fold is None)
-        print(f"run {r.run_id}: {len(r.scores)} scores "
-              f"({per_cell} per-cell, {glob} global).")
+        print(
+            f"run {r.run_id}: {len(r.scores)} scores "
+            f"({per_cell} per-cell, {glob} global)."
+        )
         for s in (s for s in r.scores if s.fold is None):
             v = f"{s.value:.6f}" if s.value is not None else "None"
             print(f"  {s.function:35s} = {v}")
 
 
 def _cmd_process_dataset(args: argparse.Namespace) -> None:
-    """Port of Main.java:114-117."""
+    from src.client import OpenmlClient
     from src.process_dataset import ProcessDataset
 
     mode = "random" if args.random else "normal"
+    client = OpenmlClient(test=args.test)
     if args.id is None:
         # Java constructor would poll. We expose it as an explicit .poll().
-        ProcessDataset(mode=mode).poll()
+        ProcessDataset(mode=mode, client=client).poll()
         return
 
-    pd = ProcessDataset(dataset_id=args.id, mode=mode)
+    pd = ProcessDataset(dataset_id=args.id, mode=mode, client=client)
     f, q = pd.last_features, pd.last_qualities
     if f and f.error:
         print(f"dataset {args.id}: features error - {f.error}", file=sys.stderr)
@@ -154,55 +227,86 @@ def _cmd_process_dataset(args: argparse.Namespace) -> None:
 
 
 def _cmd_process_dataset_print(args: argparse.Namespace) -> None:
-    """Port of Main.java:118-120. Local-only feature extraction → stdout."""
+    from src.client import OpenmlClient
     from src.process_dataset import ProcessDataset
 
     if args.id is None:
         raise SystemExit("process_dataset_print requires --id <dataset_id>.")
-    ProcessDataset().process_and_print(args.id)
+    ProcessDataset(client=OpenmlClient(test=args.test)).process_and_print(args.id)
 
 
 def _cmd_generate_folds(args: argparse.Namespace) -> None:
-    """Port of Main.java:141-149. Writes splits ARFF to ``--output`` or stdout.
+    """Writes splits ARFF to ``--output`` or stdout.
 
-    The Java GenerateFolds uses the dataset's task-default procedure; we don't
-    have a Python equivalent of that lookup, so we default to 10-fold CV with
-    1 repeat and ``FOLD_GENERATION_SEED``. Override via the env-var-style
-    procedure name parsed from ``--mode`` if given (one of: crossvalidation,
-    holdout, leaveoneout, testontrainingdata, learningcurve).
+    Mirrors Java's ``GenerateFolds``: ``--id`` is a TASK id. The source
+    dataset, estimation-procedure type, and folds/repeats/percentage are all
+    read from that task (Java's Main.java:138-146 / GenerateFolds.java); the
+    seed is ``FOLD_GENERATION_SEED`` (Java's Main.java:46).
     """
-    from src.models import EstimationProcedure, EstimationProcedureType
-    from src.process_dataset import generate_folds
+    from src.client import OpenmlClient
     from src.process_dataset.arff import splits_to_arff
+    from src.process_dataset.module import generate_folds_for_task
 
     if args.id is None:
-        raise SystemExit("generate_folds requires --id <dataset_id>.")
+        raise SystemExit("generate_folds requires --id <task_id>.")
 
-    procedure_name = (args.mode or "crossvalidation").lower()
-    try:
-        ep_type = EstimationProcedureType[procedure_name.upper()]
-    except KeyError:
-        raise SystemExit(
-            f"Unknown procedure {procedure_name!r}. Try one of: "
-            "crossvalidation, holdout, holdout_ordered, leaveoneout, "
-            "testontrainingdata, learningcurve_cv."
-        )
-
-    procedure_kwargs = {}
-    if ep_type in (EstimationProcedureType.CROSSVALIDATION,
-                   EstimationProcedureType.LEARNINGCURVE_CV):
-        procedure_kwargs = {"folds": 10, "repeats": 1}
-    elif ep_type is EstimationProcedureType.HOLDOUT:
-        procedure_kwargs = {"percentage": 33, "repeats": 1}
-
-    procedure = EstimationProcedure(type=ep_type, **procedure_kwargs)
-    splits, _, _ = generate_folds(did=args.id, procedure=procedure, seed=FOLD_GENERATION_SEED)
+    splits, _, _ = generate_folds_for_task(
+        task_id=args.id,
+        base_url=OpenmlClient(test=args.test).base_url,
+        seed=FOLD_GENERATION_SEED,
+    )
     text = splits_to_arff(splits)
 
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
             f.write(text)
         print(f"wrote {len(splits)} split rows to {args.output}")
+    else:
+        print(text)
+
+
+def _cmd_extract_features(args: argparse.Namespace, characterizer_set: str) -> None:
+    """Shared handler for ``extract_features_simple`` / ``extract_features_all``.
+    ``--id`` processes one dataset; omitting it polls the qualities-unprocessed
+    endpoint. ``--tag`` becomes the priority tag (Java parity)."""
+    from src.client import OpenmlClient
+    from src.qualities.extract import ExtractFeatures
+
+    mode = "random" if args.random else "normal"
+    client = OpenmlClient(test=args.test)
+    ef = ExtractFeatures(
+        client=client,
+        mode=mode,
+        characterizer_set=characterizer_set,
+        priority_tag=args.tag,
+    )
+    if args.id is None:
+        ef.poll()
+        return
+
+    dq = ef.process(args.id)
+    if dq.error:
+        print(f"dataset {args.id}: qualities error - {dq.error}", file=sys.stderr)
+    else:
+        print(f"dataset {args.id}: {len(dq.qualities)} qualities extracted.")
+
+
+def _cmd_merge_datasets(args: argparse.Namespace) -> None:
+    """``--id`` is a MultiTask task id. Writes the merged ARFF to ``--output``
+    or stdout (Java: ``Output.instances2file``)."""
+    from src.client import OpenmlClient
+    from src.process_dataset.merge import MergeDataset
+
+    if args.id is None:
+        raise SystemExit("merge_datasets requires --id <task_id>.")
+
+    client = OpenmlClient(test=args.test)
+    md = MergeDataset(task_id=args.id, client=client)
+    text = md.merge()
+    if args.output:
+        with open(args.output, "w", encoding="utf-8") as f:
+            f.write(text)
+        print(f"wrote merged ARFF to {args.output}", file=sys.stderr)
     else:
         print(text)
 
@@ -222,11 +326,9 @@ _DISPATCH: dict[str, callable] = {
     "process_dataset": _cmd_process_dataset,
     "process_dataset_print": _cmd_process_dataset_print,
     "generate_folds": _cmd_generate_folds,
-    # Functions below are recognised (matching Main.java's option parsing) but
-    # unimplemented. Each call site logs the missing functionality.
-    "extract_features_all": lambda a: _not_implemented("extract_features_all"),
-    "extract_features_simple": lambda a: _not_implemented("extract_features_simple"),
-    "merge_datasets": lambda a: _not_implemented("merge_datasets"),
+    "extract_features_all": lambda a: _cmd_extract_features(a, "all"),
+    "extract_features_simple": lambda a: _cmd_extract_features(a, "simple"),
+    "merge_datasets": _cmd_merge_datasets,
     "all_wrong": lambda a: _not_implemented("all_wrong"),
     "different_predictions": lambda a: _not_implemented("different_predictions"),
     "challenge": lambda a: _not_implemented("challenge"),
