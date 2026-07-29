@@ -1,6 +1,5 @@
-"""Python port of ``org.openml.webapplication.Main``.
-
-CLI dispatcher mirroring Main.java. Run as ``python -m src.main --help``.
+"""
+CLI dispatcher mirroring Main.java. Run as ``python -m main --help``.
 
 Supported functions (``-f`` / ``--function``):
   * ``evaluate_run``         — port of EvaluateRun; needs ``--id``.
