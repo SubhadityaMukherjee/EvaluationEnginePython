@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Iterable, Optional
+from typing import Literal
+
+# Dataset file formats supported throughout the engine. Picked once at the
+# edge (CLI flag / notebook) and threaded through download + parse.
+DataFormat = Literal["arff", "parquet"]
 
 # ============================================================================
 # Dataset metadata
@@ -21,7 +26,7 @@ class Quality:
 @dataclass()
 class DatasetDownloadInfo:
     file_path: str
-    default_target_attribute: Optional[str]
+    default_target_attribute: str | None
 
 
 # ============================================================================
@@ -41,20 +46,20 @@ class Feature:
     is_ignore: bool = False
     is_row_identifier: bool = False
 
-    number_of_distinct_values: Optional[int] = None
-    number_of_unique_values: Optional[int] = None
-    number_of_missing_values: Optional[int] = None
-    number_of_integer_values: Optional[int] = None
-    number_of_real_values: Optional[int] = None
-    number_of_nominal_values: Optional[int] = None
-    number_of_values: Optional[int] = None
+    number_of_distinct_values: int | None = None
+    number_of_unique_values: int | None = None
+    number_of_missing_values: int | None = None
+    number_of_integer_values: int | None = None
+    number_of_real_values: int | None = None
+    number_of_nominal_values: int | None = None
+    number_of_values: int | None = None
 
-    maximum_value: Optional[float] = None
-    minimum_value: Optional[float] = None
-    mean_value: Optional[float] = None
-    standard_deviation: Optional[float] = None
+    maximum_value: float | None = None
+    minimum_value: float | None = None
+    mean_value: float | None = None
+    standard_deviation: float | None = None
 
-    class_distribution: Optional[str] = None
+    class_distribution: str | None = None
 
     def __str__(self) -> str:
         return f"{self.index} - {self.name}"
@@ -62,10 +67,10 @@ class Feature:
 
 @dataclass()
 class DataFeature:
-    did: Optional[int] = None
-    evaluation_engine_id: Optional[int] = None
+    did: int | None = None
+    evaluation_engine_id: int | None = None
     features: list[Feature] = field(default_factory=list)
-    error: Optional[str] = None
+    error: str | None = None
 
     def feature_map(
         self,
@@ -78,10 +83,10 @@ class DataFeature:
 
 @dataclass()
 class DataQuality:
-    did: Optional[int] = None
-    evaluation_engine_id: Optional[int] = None
+    did: int | None = None
+    evaluation_engine_id: int | None = None
     qualities: list[Quality] = field(default_factory=list)
-    error: Optional[str] = None
+    error: str | None = None
 
     def quality_map(
         self,
@@ -102,26 +107,26 @@ class EvaluationScore:
     """One computed metric. Mirrors ``org.openml.apiconnector.xml.EvaluationScore``."""
 
     function: str
-    value: Optional[float] = None
-    stdev: Optional[float] = None
-    array: Optional[list] = None
-    repeat: Optional[int] = None
-    fold: Optional[int] = None
-    sample: Optional[int] = None
-    sample_size: Optional[int] = None
+    value: float | None = None
+    stdev: float | None = None
+    array: list | None = None
+    repeat: int | None = None
+    fold: int | None = None
+    sample: int | None = None
+    sample_size: int | None = None
 
 
 @dataclass
 class RunEvaluation:
     """Aggregated result of evaluating one run. Mirrors ``RunEvaluation``."""
 
-    run_id: Optional[int] = None
+    run_id: int | None = None
     # Canonical evaluation-engine id; mirrors ``EVALUATION_ENGINE_ID`` in
     # ``src.runs.evaluators`` (kept there to avoid a circular import).
     evaluation_engine_id: int = 1
     scores: list[EvaluationScore] = field(default_factory=list)
-    error: Optional[str] = None
-    warning: Optional[str] = None
+    error: str | None = None
+    warning: str | None = None
 
     def add_scores(self, scores: Iterable[EvaluationScore]) -> None:
         self.scores.extend(scores)
@@ -158,15 +163,6 @@ _OML_FLOAT_FIELDS = (
 )
 
 
-@dataclass(slots=True)
-class Quality:
-    name: str
-    value: float | None = None
-
-    def __str__(self) -> str:
-        return f"{self.name} - {self.value}"
-
-
 class EstimationProcedureType(str, Enum):
     CROSSVALIDATION = "CROSSVALIDATION"
     HOLDOUT = "HOLDOUT"
@@ -186,6 +182,6 @@ class EstimationProcedure:
     """
 
     type: EstimationProcedureType
-    folds: Optional[int] = None
-    repeats: Optional[int] = None
-    percentage: Optional[float] = None
+    folds: int | None = None
+    repeats: int | None = None
+    percentage: float | None = None

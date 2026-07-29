@@ -1,35 +1,44 @@
+"""Dataset → ``DataQuality`` extraction (format-agnostic).
+
+File parsing is delegated to :class:`src.data_loader.DataLoader`; this module
+computes the SimpleMetaFeatures-equivalent counts plus the pymfe meta-features.
+"""
+
 import math
 
-import arff
 from pymfe.mfe import MFE
 
+from src.data_loader import DataLoader
 from src.helpers import normalize_target_names
-from src.models import DataQuality, DatasetDownloadInfo, Quality
+from src.models import DataFormat, DataQuality, DatasetDownloadInfo, Quality
 from src.qualities.module import _build_xy, _compute_dataset_qualities
 
 _DEFAULT_MFE_GROUPS = ("general", "statistical", "info-theory")
 
 
-def load_arff_qualities(
+def load_qualities(
     dataset: DatasetDownloadInfo,
     *,
+    data_format: DataFormat = "arff",
     did: int | None = None,
     evaluation_engine_id: int | None = None,
     groups: tuple[str, ...] = _DEFAULT_MFE_GROUPS,
     random_state: int = 42,
     timeout: int = 30,
 ) -> DataQuality:
-    try:
-        with open(
-            dataset.file_path,
-            "r",
-            encoding="utf-8",
-            errors="replace",
-        ) as f:
-            data = arff.load(f)
+    """Extract a :class:`DataQuality` from a downloaded dataset.
 
-        attributes = data["attributes"]
-        rows = data["data"]
+    Parameters
+    ----------
+    dataset:
+        Already-downloaded dataset (``file_path`` points at an ``.arff`` or
+        ``.parquet`` file depending on how it was fetched).
+    data_format:
+        ``"arff"`` (default) or ``"parquet"`` — selects the
+        :class:`~src.data_loader.DataLoader` backend.
+    """
+    try:
+        attributes, rows = DataLoader(data_format).load(dataset)
 
         target_names = normalize_target_names(
             dataset.default_target_attribute,

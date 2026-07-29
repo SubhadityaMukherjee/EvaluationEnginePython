@@ -16,11 +16,13 @@ from __future__ import annotations
 from typing import Optional
 
 from src.client import OpenmlApiError, OpenmlClient
-from src.features import DataFeature, features_to_xml, load_arff_features
-from src.helpers import (get_data_and_meta_information_from_did,
-                         get_dataset_description_xml)
-from src.models import DataQuality
-from src.qualities import load_arff_qualities, qualities_to_xml
+from src.features import DataFeature, features_to_xml, load_features
+from src.helpers import (
+    get_data_and_meta_information_from_did,
+    get_dataset_description_xml,
+)
+from src.models import DataFormat, DataQuality
+from src.qualities import load_qualities
 
 # OpenML dataset status constants — Java's
 # org.openml.apiconnector.settings.Constants.DATA_STATUS_*
@@ -48,9 +50,11 @@ class ProcessDataset:
         dataset_id: Optional[int] = None,
         mode: str = "normal",
         client: Optional[OpenmlClient] = None,
+        dataset_format: DataFormat = "arff",
     ) -> None:
         self.mode = mode
         self._client = client
+        self._dataset_format: DataFormat = dataset_format
         self.last_features: Optional[DataFeature] = None
         self.last_qualities: Optional[DataQuality] = None
 
@@ -83,11 +87,14 @@ class ProcessDataset:
             default_target = dsd.get("oml:default_target_attribute")
             status = dsd.get("oml:status")
 
-            info = get_data_and_meta_information_from_did(did, base_url=base_url)
+            info = get_data_and_meta_information_from_did(
+                did, dataset_type=self._dataset_format, base_url=base_url
+            )
 
             features = (
-                load_arff_features(
+                load_features(
                     info,
+                    data_format=self._dataset_format,
                     did=did,
                     evaluation_engine_id=EVALUATION_ENGINE_ID,
                 )
@@ -111,8 +118,9 @@ class ProcessDataset:
             if status == DATA_STATUS_PREP:
                 client.data_status_update(did, DATA_STATUS_ACTIVE)
 
-            qualities = load_arff_qualities(
+            qualities = load_qualities(
                 info,
+                data_format=self._dataset_format,
                 did=did,
                 evaluation_engine_id=EVALUATION_ENGINE_ID,
             )
@@ -174,10 +182,11 @@ class ProcessDataset:
         print them as XML, without any upload. Java only prints features here
         (no qualities), so we match that."""
         info = get_data_and_meta_information_from_did(
-            did, base_url=self._get_client().base_url
+            did, dataset_type=self._dataset_format, base_url=self._get_client().base_url
         )
-        features = load_arff_features(
+        features = load_features(
             info,
+            data_format=self._dataset_format,
             did=did,
             evaluation_engine_id=EVALUATION_ENGINE_ID,
         )
