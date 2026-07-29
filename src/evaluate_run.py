@@ -23,7 +23,8 @@ import contextlib
 import numpy as np
 import pandas as pd
 
-from src.client import OpenmlApiError, OpenmlClient
+from src.client import OpenmlClient
+from src.exceptions import OpenmlApiError
 from src.helpers import (
     download_to_temp_file,
     get_run_xml,

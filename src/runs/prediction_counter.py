@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from src.exceptions import PredictionValidationError
 from src.helpers import get_row_index, get_row_index_multi
 
 
@@ -75,9 +76,15 @@ class FoldsPredictionCounter:
 
     def add_prediction(self, repeat: int, fold: int, sample: int, rowid: int) -> None:
         if repeat >= len(self.actual):
-            raise RuntimeError(f"Repeat #{repeat} not defined by task.")
+            raise PredictionValidationError(
+                f"Prediction references repeat {repeat}, but the task only "
+                f"defines repeats 0..{self._num_repeats - 1}."
+            )
         if fold >= len(self.actual[repeat]):
-            raise RuntimeError(f"Fold #{fold} not defined by task.")
+            raise PredictionValidationError(
+                f"Prediction references fold {fold} for repeat {repeat}, but "
+                f"the task only defines folds 0..{self._num_folds - 1}."
+            )
         self.actual[repeat][fold][sample].append(rowid)
 
     def check(self) -> bool:

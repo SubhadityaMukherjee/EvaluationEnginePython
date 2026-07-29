@@ -15,7 +15,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from src.client import OpenmlApiError, OpenmlClient
+from src.client import OpenmlClient
+from src.exceptions import OpenmlApiError
 from src.features import DataFeature, features_to_xml, load_features
 from src.helpers import (
     get_data_and_meta_information_from_did,

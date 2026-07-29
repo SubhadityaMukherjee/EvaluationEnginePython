@@ -6,8 +6,14 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from src.helpers import (_encode_labels, get_row_index, get_row_index_multi,
-                         prediction_to_confidences, to_prob_dist)
+from src.exceptions import PredictionValidationError
+from src.helpers import (
+    _encode_labels,
+    get_row_index,
+    get_row_index_multi,
+    prediction_to_confidences,
+    to_prob_dist,
+)
 from src.models import EstimationProcedureType, EvaluationScore, RunEvaluation
 from src.runs.metrics import classification_metrics, regression_metrics
 from src.runs.prediction_counter import FoldsPredictionCounter
@@ -67,7 +73,9 @@ def evaluate_batch(
 ) -> tuple[list[EvaluationScore], list[EvaluationScore], FoldsPredictionCounter]:
 
     if target_feature not in dataset_df.columns:
-        raise ValueError(f"Class attribute ({target_feature}) not found")
+        raise ValueError(
+            f"Target feature {target_feature!r} is not present in the dataset"
+        )
 
     class_names = (
         []
@@ -81,7 +89,9 @@ def evaluate_batch(
     pred_cols = list(predictions_df.columns)
     col_rowid = get_row_index("row_id", pred_cols)
     if col_rowid < 0:
-        raise ValueError("Predictions are missing the 'row_id' column")
+        raise PredictionValidationError(
+            "Predictions file is missing the required 'row_id' column"
+        )
     col_repeat = get_row_index_multi(["repeat", "repeat_nr"], pred_cols)
     col_fold = get_row_index_multi(["fold", "fold_nr"], pred_cols)
     col_sample = (
@@ -91,14 +101,18 @@ def evaluate_batch(
     )
     col_prediction = get_row_index("prediction", pred_cols)
     if col_prediction < 0:
-        raise ValueError("Predictions are missing the 'prediction' column")
+        raise PredictionValidationError(
+            "Predictions file is missing the required 'prediction' column"
+        )
 
     confidence_cols: dict[str, int] = {}
     if task_type is not TaskType.REGRESSION:
         for cls in class_names:
             col_name = f"confidence.{cls}"
             if col_name not in pred_cols:
-                raise ValueError(f"Attribute {col_name} not found among predictions.")
+                raise PredictionValidationError(
+                    f"Predictions file is missing the required {col_name!r} column"
+                )
             confidence_cols[cls] = get_row_index(col_name, pred_cols)
 
     target_values = dataset_df[target_feature].to_numpy()
@@ -123,8 +137,8 @@ def evaluate_batch(
 
         pc.add_prediction(repeat, fold, sample, rowid)
         if rowid >= n_dataset:
-            raise RuntimeError(
-                f"Making a prediction for row_id {rowid} (0-based) while "
+            raise PredictionValidationError(
+                f"Prediction references row_id {rowid} (0-based), but the "
                 f"dataset has only {n_dataset} instances."
             )
 
@@ -162,7 +176,10 @@ def evaluate_batch(
                 )
 
     if not pc.check():
-        raise RuntimeError(f"Prediction count does not match: {pc.get_error_message()}")
+        raise PredictionValidationError(
+            f"Prediction counts do not match the task's splits: "
+            f"{pc.get_error_message()}"
+        )
 
     suppress_per_fold = estimation_procedure_type in (
         EstimationProcedureType.LEAVEONEOUT,
@@ -263,7 +280,8 @@ def evaluate_stream(
     class_names = _resolve_class_names(dataset_df, target_feature)
     if not class_names:
         raise ValueError(
-            f"Class attribute ({target_feature}) not found or has no values"
+            f"Target feature {target_feature!r} has no class labels; cannot "
+            f"evaluate a classification task."
         )
 
     pred_cols = list(predictions_df.columns)
@@ -273,16 +291,19 @@ def evaluate_stream(
     for cls in class_names:
         col_name = f"confidence.{cls}"
         if col_name not in pred_cols:
-            raise ValueError(f"Attribute {col_name} not found among predictions.")
+            raise PredictionValidationError(
+                f"Predictions file is missing the required {col_name!r} column"
+            )
         confidence_cols[cls] = get_row_index(col_name, pred_cols)
 
     target_values = dataset_df[target_feature].to_numpy()
     label_to_idx = {c: i for i, c in enumerate(class_names)}
 
     if len(predictions_df) != len(dataset_df):
-        raise ValueError(
-            "Predictions need to be done in the same order as the dataset. "
-            f"Dataset has {len(dataset_df)} instances, predictions has {len(predictions_df)}."
+        raise PredictionValidationError(
+            "Predictions must appear in the same order as the dataset. "
+            f"Dataset has {len(dataset_df)} instances, "
+            f"predictions has {len(predictions_df)}."
         )
 
     y_true: list[int] = []
@@ -292,10 +313,10 @@ def evaluate_stream(
     for i, pred_row in predictions_df.iterrows():
         rowid = int(pred_row.iloc[col_rowid])
         if rowid != i:
-            raise ValueError(
-                "Predictions need to be done in the same order as the dataset. "
-                f"Could not find prediction for instance #{i}. "
-                f"Found prediction for instance #{rowid} instead."
+            raise PredictionValidationError(
+                "Predictions must appear in the same order as the dataset. "
+                f"Expected a prediction for instance #{i}, but found one for "
+                f"instance #{rowid} instead."
             )
         pred_value = pred_row.iloc[col_prediction]
         raw_conf = np.array(
@@ -344,13 +365,16 @@ def evaluate_survival(
         rowid = int(pred_row.iloc[col_rowid])
         pc.add_prediction(repeat, fold, 0, rowid)
         if rowid >= n_dataset:
-            raise RuntimeError(
-                f"Making a prediction for row_id {rowid} (0-based) while "
+            raise PredictionValidationError(
+                f"Prediction references row_id {rowid} (0-based), but the "
                 f"dataset has only {n_dataset} instances."
             )
 
     if not pc.check():
-        raise RuntimeError(f"Prediction count does not match: {pc.get_error_message()}")
+        raise PredictionValidationError(
+            f"Prediction counts do not match the task's splits: "
+            f"{pc.get_error_message()}"
+        )
 
     return [], pc
 

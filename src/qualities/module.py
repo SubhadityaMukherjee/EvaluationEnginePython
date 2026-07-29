@@ -195,7 +195,8 @@ def _build_xy(
 
     if not target_idxs:
         raise ValueError(
-            "default_target_attribute not found in ARFF attributes",
+            f"Target feature not found among dataset attributes "
+            f"(default_target_attribute={target_names!r})."
         )
 
     target_idx = target_idxs[0]
