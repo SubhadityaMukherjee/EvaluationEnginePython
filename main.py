@@ -158,6 +158,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "Parquet is being phased in as ARFF support is retired.",
     )
 
+    p.add_argument(
+        "-no-upload",
+        "--no-upload",
+        action="store_true",
+        dest="no_upload",
+        help="Compute results locally but skip the upload step. Currently "
+        "honored by evaluate_run, which prints the evaluation XML to stdout "
+        "instead of POSTing it.",
+    )
+
     return p
 
 
@@ -192,6 +202,8 @@ def _cmd_evaluate_run(args: argparse.Namespace) -> None:
 
     # Constructor evaluates the run and stores the result on ``.last_result``;
     # the upload to /run/evaluate happens as a side effect of evaluate().
+    upload = not args.no_upload
+
     er = EvaluateRun(
         run_id=args.id,
         evaluation_mode=evaluation_mode,
@@ -201,10 +213,20 @@ def _cmd_evaluate_run(args: argparse.Namespace) -> None:
         uploader_id=args.user,
         client=OpenmlClient(test=args.test),
         dataset_format=args.dataset_format,
+        upload=upload,
     )
     r = er.last_result
     if r is None:
         return  # Polling path (no run_id) — TODO.
+    if not upload:
+        # Dry-run: emit the evaluation XML the engine *would* have uploaded so
+        # callers (e.g. the comparison notebook) can read the computed scores
+        # without anything being written to the server.
+        from src.runs.serialization import run_evaluation_to_xml
+
+        sys.stdout.write(run_evaluation_to_xml(r, pretty=False))
+        sys.stdout.write("\n")
+        return
     if r.error:
         print(f"run {r.run_id}: error - {r.error}", file=sys.stderr)
     else:

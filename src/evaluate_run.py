@@ -112,6 +112,7 @@ class EvaluateRun:
         uploader_id: int | None = None,
         client: OpenmlClient | None = None,
         dataset_format: DataFormat = "arff",
+        upload: bool = True,
     ) -> None:
         self.evaluation_mode = evaluation_mode
         self.task_type_ids = (
@@ -122,6 +123,11 @@ class EvaluateRun:
         self.uploader_id = uploader_id
         self._client = client
         self._dataset_format: DataFormat = dataset_format
+        # When False, evaluate() computes the RunEvaluation but skips the
+        # /run/evaluate upload (dry-run / local-only mode); the CLI then prints
+        # the serialized XML so callers can inspect the scores without mutating
+        # the server.
+        self._upload_enabled = upload
         self.last_result: RunEvaluation | None = None
 
         if run_id is not None:
@@ -216,7 +222,13 @@ class EvaluateRun:
         """Port of EvaluateRun.java:228-245 — upload the evaluation, and if
         the upload itself fails with an ``OpenmlApiError``, upload a fresh
         error-only evaluation in its place. Other exceptions propagate (Java
-        catches and logs, but in Python the CLI top-level handles that)."""
+        catches and logs, but in Python the CLI top-level handles that).
+
+        No-op when ``upload=False`` was passed to the constructor (local-only
+        / dry-run mode): the computed ``result`` is still stored on
+        ``self.last_result`` for the caller to read."""
+        if not self._upload_enabled:
+            return
         client = self._get_client()
         try:
             client.run_evaluate_upload(result)

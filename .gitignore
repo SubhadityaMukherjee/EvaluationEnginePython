@@ -1,3 +1,6 @@
+# Claude / AI assistant local notes (e.g. .claude/ideas.md)
+.claude/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
