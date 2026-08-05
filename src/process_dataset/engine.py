@@ -24,14 +24,12 @@ from src.helpers import (
 )
 from src.models import DataFormat, DataQuality
 from src.qualities import load_qualities
+from src.constants import EVALUATION_ENGINE_ID
 
 # OpenML dataset status constants — Java's
 # org.openml.apiconnector.settings.Constants.DATA_STATUS_*
 DATA_STATUS_PREP = "in_preparation"
 DATA_STATUS_ACTIVE = "active"
-
-# Mirrors Settings.EVALUATION_ENGINE_ID (== 1 on production).
-EVALUATION_ENGINE_ID = 1
 
 # OpenML API error codes that ProcessDataset treats specially. See
 # ProcessDataset.java:74-80 (441) and :88-95 (431).

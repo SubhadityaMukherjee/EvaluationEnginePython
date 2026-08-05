@@ -1,9 +1,9 @@
 import xmltodict
 
 from src.models import (
-    _OML_BOOL_FIELDS,
-    _OML_FLOAT_FIELDS,
-    _OML_INT_FIELDS,
+    OML_BOOL_FIELDS,
+    OML_FLOAT_FIELDS,
+    OML_INT_FIELDS,
     DataFeature,
     Feature,
 )
@@ -19,12 +19,12 @@ def feature_to_oml_dict(feat: Feature) -> dict:
     if feat.nominal_values:
         result["oml:nominal_value"] = feat.nominal_values
 
-    for attr in _OML_BOOL_FIELDS:
+    for attr in OML_BOOL_FIELDS:
         v = getattr(feat, attr)
         if v is not None:
             result[f"oml:{attr}"] = str(v).lower()
 
-    for attr in (*_OML_INT_FIELDS, *_OML_FLOAT_FIELDS):
+    for attr in (*OML_INT_FIELDS, *OML_FLOAT_FIELDS):
         v = getattr(feat, attr)
         if v is not None:
             result[f"oml:{attr}"] = str(v)

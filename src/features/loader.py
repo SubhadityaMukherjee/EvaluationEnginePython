@@ -8,8 +8,13 @@ unaware of whether the source was ARFF or Parquet.
 from src.data_loader import DataLoader
 from src.features.module import _fill_nominal_feature, _fill_numeric_feature
 from src.helpers import normalize_target_names
-from src.models import (_NUMERIC_TYPES, DataFeature, DataFormat,
-                        DatasetDownloadInfo, Feature)
+from src.models import (
+    NUMERIC_TYPES,
+    DataFeature,
+    DataFormat,
+    DatasetDownloadInfo,
+    Feature,
+)
 
 
 def _liac_type(type_spec):
@@ -23,7 +28,7 @@ def _liac_type(type_spec):
 
     normalized = type_spec.upper()
 
-    if normalized in _NUMERIC_TYPES:
+    if normalized in NUMERIC_TYPES:
         return "numeric", None
 
     return {

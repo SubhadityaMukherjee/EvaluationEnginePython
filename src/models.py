@@ -135,17 +135,24 @@ class RunEvaluation:
 # ============================================================================
 # Constants
 # ============================================================================
+# ARFF/Parquet type tags treated as numeric across the engine (feature
+# typing, quality computation). Public so the feature / quality extractors
+# can check membership without importing a private name.
+NUMERIC_TYPES = frozenset({"NUMERIC", "REAL", "INTEGER"})
 
-_NUMERIC_TYPES = frozenset({"NUMERIC", "REAL", "INTEGER"})
-
-_OML_STR_FIELDS = "name"
-_OML_BOOL_FIELDS = (
+# ``Feature`` dataclass field groups by their OpenML XML scalar type. Public
+# so ``src.features.serialization`` can iterate them without reaching into a
+# private name. ``OML_STR_FIELDS`` ("name") is emitted inline by
+# ``feature_to_oml_dict`` because the name is mandatory, but kept here to
+# document the full schema.
+OML_STR_FIELDS = "name"
+OML_BOOL_FIELDS = (
     "is_target",
     "is_ignore",
     "is_row_identifier",
 )
 
-_OML_INT_FIELDS = (
+OML_INT_FIELDS = (
     "number_of_missing_values",
     "number_of_distinct_values",
     "number_of_unique_values",
@@ -155,7 +162,7 @@ _OML_INT_FIELDS = (
     "number_of_values",
 )
 
-_OML_FLOAT_FIELDS = (
+OML_FLOAT_FIELDS = (
     "maximum_value",
     "minimum_value",
     "mean_value",
@@ -170,6 +177,33 @@ class EstimationProcedureType(str, Enum):
     LEAVEONEOUT = "LEAVEONEOUT"
     TESTONTRAININGDATA = "TESTONTRAININGDATA"
     LEARNINGCURVE_CV = "LEARNINGCURVE_CV"
+
+    @classmethod
+    def from_oml_type(cls, type_str: str | None) -> EstimationProcedureType | None:
+        """Map an OpenML task ``oml:type`` string to a procedure type.
+
+        Case-insensitive; returns ``None`` for an unrecognized type. Source:
+        ``org.openml.apiconnector.xml.EstimationProcedureType``.
+        """
+        return _OML_TYPE_TO_PROCEDURE.get((type_str or "").lower())
+
+
+# OpenML task ``oml:type`` strings (lower-cased) → EstimationProcedureType.
+# Single source of truth backing ``EstimationProcedureType.from_oml_type``;
+# both the fold generator (``src.process_dataset``) and the run evaluator
+# (``src.evaluate_run``) consume it through that classmethod. Note the
+# two-string alias onto TESTONTRAININGDATA ("testontrainingdata" + the verbose
+# "testonthetrainingdata"). Source:
+# org.openml.apiconnector.xml.EstimationProcedureType.
+_OML_TYPE_TO_PROCEDURE: dict[str, EstimationProcedureType] = {
+    "crossvalidation": EstimationProcedureType.CROSSVALIDATION,
+    "holdout": EstimationProcedureType.HOLDOUT,
+    "holdout_ordered": EstimationProcedureType.HOLDOUT_ORDERED,
+    "leaveoneout": EstimationProcedureType.LEAVEONEOUT,
+    "testontrainingdata": EstimationProcedureType.TESTONTRAININGDATA,
+    "testonthetrainingdata": EstimationProcedureType.TESTONTRAININGDATA,
+    "learningcurve": EstimationProcedureType.LEARNINGCURVE_CV,
+}
 
 
 @dataclass(frozen=True)

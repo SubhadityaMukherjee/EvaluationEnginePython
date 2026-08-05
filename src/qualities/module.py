@@ -3,7 +3,7 @@ from collections import Counter
 import numpy as np
 import pandas as pd
 
-from src.models import _NUMERIC_TYPES, Quality
+from src.models import NUMERIC_TYPES, Quality
 
 
 def _pct(num: int, den: int) -> float | None:
@@ -12,7 +12,7 @@ def _pct(num: int, den: int) -> float | None:
     return num / den * 100
 
 
-def _compute_dataset_qualities(
+def compute_dataset_qualities(
     attributes,
     rows,
     target_names: set[str],
@@ -28,7 +28,7 @@ def _compute_dataset_qualities(
 
     target_type_spec = attr_types[target_idx] if target_idx is not None else None
     target_is_numeric = isinstance(target_type_spec, str) and (
-        target_type_spec.upper() in _NUMERIC_TYPES
+        target_type_spec.upper() in NUMERIC_TYPES
     )
 
     qualities: list[Quality] = []
@@ -89,7 +89,7 @@ def _compute_dataset_qualities(
                 type_spec,
                 str,
             )
-            and type_spec.upper() in _NUMERIC_TYPES
+            and type_spec.upper() in NUMERIC_TYPES
         ):
             n_numeric += 1
             col = (row[i] for row in rows)
@@ -141,7 +141,10 @@ def _compute_dataset_qualities(
             add("MajorityClassPercentage", None)
             add("MinorityClassPercentage", None)
 
-    add("AutoCorrelation", _autocorrelation(rows, target_idx, target_is_numeric, n_instances))
+    add(
+        "AutoCorrelation",
+        _autocorrelation(rows, target_idx, target_is_numeric, n_instances),
+    )
 
     return qualities
 
@@ -184,7 +187,7 @@ def _autocorrelation(
     return 1.0
 
 
-def _build_xy(
+def build_xy(
     attributes,
     rows,
     target_names: set[str],

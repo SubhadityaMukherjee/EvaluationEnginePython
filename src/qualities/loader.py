@@ -11,7 +11,7 @@ from pymfe.mfe import MFE
 from src.data_loader import DataLoader
 from src.helpers import normalize_target_names
 from src.models import DataFormat, DataQuality, DatasetDownloadInfo, Quality
-from src.qualities.module import _build_xy, _compute_dataset_qualities
+from src.qualities.module import build_xy, compute_dataset_qualities
 
 _DEFAULT_MFE_GROUPS = ("general", "statistical", "info-theory")
 
@@ -44,13 +44,13 @@ def load_qualities(
             dataset.default_target_attribute,
         )
 
-        qualities = _compute_dataset_qualities(
+        qualities = compute_dataset_qualities(
             attributes,
             rows,
             target_names,
         )
 
-        X, y = _build_xy(attributes, rows, target_names)
+        X, y = build_xy(attributes, rows, target_names)
 
         mfe = MFE(
             groups=tuple(groups),

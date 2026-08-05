@@ -38,13 +38,13 @@ from src.helpers import (
 )
 from src.models import DataFormat, EstimationProcedureType, RunEvaluation
 from src.runs import (
-    EVALUATION_ENGINE_ID,
     SUPPORTED_TASK_TYPES_EVALUATION,
     TASK_TYPE_ID_TO_TASK_TYPE,
     evaluate_batch,
     evaluate_stream,
     evaluate_survival,
 )
+from constants import EVALUATION_ENGINE_ID
 
 _MAX_LENGTH_WARNING = 1024
 
@@ -52,25 +52,12 @@ _MAX_LENGTH_WARNING = 1024
 # loop has nothing left to hand out. EvaluateRun.java:88 catches it to break.
 _CODE_NO_UNEVALUATED_RUNS = 1013
 
-# Task XML estimation_procedure/oml:type → EstimationProcedureType.
-# Source: org.openml.apiconnector.xml.EstimationProcedureType.
-_PROCEDURE_TYPE_MAP: dict[str, EstimationProcedureType] = {
-    "crossvalidation": EstimationProcedureType.CROSSVALIDATION,
-    "holdout": EstimationProcedureType.HOLDOUT,
-    "holdout_ordered": EstimationProcedureType.HOLDOUT_ORDERED,
-    "leaveoneout": EstimationProcedureType.LEAVEONEOUT,
-    "testontrainingdata": EstimationProcedureType.TESTONTRAININGDATA,
-    "testonthetrainingdata": EstimationProcedureType.TESTONTRAININGDATA,
-    "learningcurve": EstimationProcedureType.LEARNINGCURVE_CV,
-}
-
 
 def _estimation_procedure_type(task_xml: dict) -> EstimationProcedureType | None:
     ep = task_estimation_procedure(task_xml)
     if not ep:
         return None
-    type_str = (ep.get("oml:type") or "").lower()
-    return _PROCEDURE_TYPE_MAP.get(type_str)
+    return EstimationProcedureType.from_oml_type(ep.get("oml:type"))
 
 
 def _cost_matrix_from_task(task_xml: dict) -> np.ndarray | None:

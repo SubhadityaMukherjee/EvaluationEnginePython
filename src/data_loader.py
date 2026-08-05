@@ -29,7 +29,7 @@ import pandas as pd
 from src.models import DataFormat, DatasetDownloadInfo
 
 # ARFF-style type tag used for every numeric column. It is a member of
-# ``src.models._NUMERIC_TYPES`` so the downstream extractors (which check
+# ``src.models.NUMERIC_TYPES`` so the downstream extractors (which check
 # membership in that set) treat it as numeric regardless of integer/float.
 _NUMERIC_TYPE_TAG = "NUMERIC"
 

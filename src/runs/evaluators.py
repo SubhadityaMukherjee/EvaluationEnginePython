@@ -22,7 +22,6 @@ from src.runs.prediction_counter import FoldsPredictionCounter
 # Constants
 # ============================================================================
 
-EVALUATION_ENGINE_ID = 1
 SUPPORTED_TASK_TYPES_EVALUATION = {1, 2, 3, 4, 5, 6, 7, 8}
 
 

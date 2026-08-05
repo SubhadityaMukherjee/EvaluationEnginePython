@@ -33,8 +33,8 @@ from src.helpers import get_data_and_meta_information_from_did
 from src.models import DataFormat, DataQuality, DatasetDownloadInfo, Quality
 from src.qualities.landmarkers import compute_all_landmarkers, expected_landmarker_ids
 from src.qualities.loader import load_qualities
-from src.qualities.module import _build_xy
-from src.runs import EVALUATION_ENGINE_ID
+from src.qualities.module import build_xy
+from src.constants import EVALUATION_ENGINE_ID
 
 # The 19 SimpleMetaFeatures IDs (Java's SimpleMetaFeatures.ids). Used as the
 # polling filter so the server returns datasets missing any of these.
@@ -135,7 +135,7 @@ class ExtractFeatures:
         try:
             attributes, rows = DataLoader(self.dataset_format).load(info)
             target_names = normalize_target_names(info.default_target_attribute)
-            X, y = _build_xy(attributes, rows, target_names)
+            X, y = build_xy(attributes, rows, target_names)
             landmark_values = compute_all_landmarkers(X, y)
         except Exception:  # noqa: BLE001 — Java parity: landmarkers fail soft
             return

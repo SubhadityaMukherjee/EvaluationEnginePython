@@ -23,16 +23,27 @@ from typing import Optional
 import pandas as pd
 
 from src.data_loader import DataLoader
-from src.helpers import (DEFAULT_API_BASE, get_data_and_meta_information_from_did,
-                         get_task_xml, task_estimation_procedure, task_source_data)
-from src.models import (DataFormat, DatasetDownloadInfo, EstimationProcedure,
-                        EstimationProcedureType)
-from src.process_dataset.splitting import (crossvalidation_splits,
-                                           holdout_ordered_splits,
-                                           holdout_splits,
-                                           learning_curve_splits,
-                                           leave_one_out_splits,
-                                           train_on_test_splits)
+from src.helpers import (
+    DEFAULT_API_BASE,
+    get_data_and_meta_information_from_did,
+    get_task_xml,
+    task_estimation_procedure,
+    task_source_data,
+)
+from src.models import (
+    DataFormat,
+    DatasetDownloadInfo,
+    EstimationProcedure,
+    EstimationProcedureType,
+)
+from src.process_dataset.splitting import (
+    crossvalidation_splits,
+    holdout_ordered_splits,
+    holdout_splits,
+    learning_curve_splits,
+    leave_one_out_splits,
+    train_on_test_splits,
+)
 
 
 def load_dataset(
@@ -66,17 +77,6 @@ def load_dataset(
 
 # Java's Main.FOLD_GENERATION_SEED (== 0). Default seed for fold generation.
 FOLD_GENERATION_SEED = 0
-
-# Task estimation_procedure ``oml:type`` → EstimationProcedureType.
-_PROCEDURE_TYPE_MAP: dict[str, EstimationProcedureType] = {
-    "crossvalidation": EstimationProcedureType.CROSSVALIDATION,
-    "holdout": EstimationProcedureType.HOLDOUT,
-    "holdout_ordered": EstimationProcedureType.HOLDOUT_ORDERED,
-    "leaveoneout": EstimationProcedureType.LEAVEONEOUT,
-    "testontrainingdata": EstimationProcedureType.TESTONTRAININGDATA,
-    "testonthetrainingdata": EstimationProcedureType.TESTONTRAININGDATA,
-    "learningcurve": EstimationProcedureType.LEARNINGCURVE_CV,
-}
 
 
 def _splits_for_procedure(
@@ -138,12 +138,12 @@ def _procedure_parameters(ep: dict) -> dict[str, str]:
 def _estimation_procedure_from_task(ep: dict) -> EstimationProcedure:
     """Build an ``EstimationProcedure`` from a task's ``oml:estimation_procedure``
     node — port of how Java consumes ``ac.estimationProcedureGet(epId)``."""
-    type_str = (ep.get("oml:type") or "").lower()
-    ep_type = _PROCEDURE_TYPE_MAP.get(type_str)
+    type_str = ep.get("oml:type") or ""
+    ep_type = EstimationProcedureType.from_oml_type(type_str)
     if ep_type is None:
         raise ValueError(
             f"Unsupported estimation procedure type {type_str!r}; expected "
-            f"one of {sorted(_PROCEDURE_TYPE_MAP)}."
+            f"one of {', '.join(sorted(t.value for t in EstimationProcedureType))}."
         )
 
     params = _procedure_parameters(ep)
