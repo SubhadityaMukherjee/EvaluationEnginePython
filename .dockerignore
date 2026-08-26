@@ -1,0 +1,36 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Local virtual environments (would bloat / clash with the image's /opt/venv)
+.venv
+venv
+env
+
+# Python caches & test/lint artifacts
+__pycache__
+**/__pycache__
+*.py[cod]
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+.coverage.*
+htmlcov
+*.egg-info
+
+# Editors / OS / agent tooling
+.idea
+.vscode
+.claude
+.DS_Store
+
+# Build-context noise (don't ship the recipe into the image)
+Dockerfile
+.dockerignore
+
+# Large dev-only trees not needed at runtime
+reference_and_sanity_checks
+data
