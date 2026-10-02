@@ -44,7 +44,7 @@ from src.runs import (
     evaluate_stream,
     evaluate_survival,
 )
-from constants import EVALUATION_ENGINE_ID
+from src.constants import EVALUATION_ENGINE_ID
 
 _MAX_LENGTH_WARNING = 1024
 
@@ -73,7 +73,10 @@ def _cost_matrix_from_task(task_xml: dict) -> np.ndarray | None:
     cm = task_cost_matrix(task_xml)
     if not cm:
         return None
-    raw = cm.get("#text") or cm
+    if isinstance(cm, dict):
+        raw = cm.get("#text") or cm
+    else:  # already a list-of-lists
+        raw = cm
     if isinstance(raw, str):
         raw = json.loads(raw)
     arr = np.asarray(raw, dtype=float)
@@ -203,6 +206,7 @@ class EvaluateRun:
             result.error = str(exc)[:_MAX_LENGTH_WARNING]
 
         self._upload(result)
+        self.last_result = result
         return result
 
     def _upload(self, result: RunEvaluation) -> None:

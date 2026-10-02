@@ -187,6 +187,21 @@ def _autocorrelation(
     return 1.0
 
 
+def _numeric_column(values) -> bool:
+    """True when every present value is a number (object arrays only).
+
+    ``build_xy`` works on an object array, so dtype inspection cannot
+    distinguish numeric columns — check the values instead."""
+    seen_present = False
+    for v in values:
+        if v is None:
+            continue
+        if not isinstance(v, (int, float, np.integer, np.floating)):
+            return False
+        seen_present = True
+    return seen_present
+
+
 def build_xy(
     attributes,
     rows,
@@ -211,11 +226,12 @@ def build_xy(
     X_full = pd.DataFrame({attr_names[i]: arr[:, i] for i in feature_idxs})
     y_raw = arr[:, target_idx]
 
-    y_obj = np.asarray(y_raw, dtype=object)
-    if y_obj.dtype == object:
-        y = pd.Categorical(y_raw).codes.astype(float)
+    if _numeric_column(y_raw):
+        y = np.asarray(
+            [np.nan if v is None else float(v) for v in y_raw]
+        )
     else:
-        y = y_raw.astype(float)
+        y = pd.Categorical(y_raw).codes.astype(float)
 
     string_cols = X_full.select_dtypes(
         include=["object", "string"],
@@ -230,8 +246,14 @@ def build_xy(
     for col in X_clean.select_dtypes(
         include=["object", "string"],
     ).columns:
-        X_clean[col] = pd.Categorical(
-            X_full[col],
-        ).codes.astype(float)
+        values = X_full[col].tolist()
+        if _numeric_column(values):
+            X_clean[col] = [
+                np.nan if v is None else float(v) for v in values
+            ]
+        else:
+            X_clean[col] = pd.Categorical(
+                X_full[col],
+            ).codes.astype(float)
 
     return X_clean.to_numpy(dtype=float), y

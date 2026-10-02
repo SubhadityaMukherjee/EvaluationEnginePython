@@ -1,11 +1,9 @@
-from types import SimpleNamespace
-from unittest.mock import MagicMock
+import math
 
 import pytest
 
 from src.features.module import _fill_nominal_feature, _fill_numeric_feature
 from src.models import Feature
-import math
 
 
 @pytest.fixture
@@ -137,5 +135,61 @@ class TestFullIntegration:
         data = [1, 2, None, 3]
         original = list(data)
         _fill_numeric_feature(data, feat)
+
+        assert data == original
+
+
+@pytest.fixture
+def nominal_feat() -> Feature:
+    """A fresh, unpopulated nominal Feature for each test."""
+    return Feature(index=0, name="col", data_type="nominal")
+
+
+class TestFillNominalFeature:
+    def test_counts_present_values(self, nominal_feat):
+        _fill_nominal_feature(["a", "b", "a", None, "b"], nominal_feat, ["b", "a"])
+
+        assert nominal_feat.number_of_values == 5
+        assert nominal_feat.number_of_missing_values == 1
+        assert nominal_feat.number_of_nominal_values == 4
+        assert nominal_feat.number_of_distinct_values == 2
+        assert nominal_feat.number_of_unique_values == 0
+
+    def test_unique_values_counted_once(self, nominal_feat):
+        _fill_nominal_feature(["a", "b", "b", "c", None], nominal_feat, ["a", "b", "c"])
+
+        assert nominal_feat.number_of_distinct_values == 3
+        assert nominal_feat.number_of_unique_values == 2  # 'a' and 'c'
+
+    def test_all_missing(self, nominal_feat):
+        _fill_nominal_feature([None, None], nominal_feat, ["a", "b"])
+
+        assert nominal_feat.number_of_missing_values == 2
+        assert nominal_feat.number_of_nominal_values == 0
+        assert nominal_feat.number_of_distinct_values == 0
+        assert nominal_feat.class_distribution == ""
+
+    def test_empty_column(self, nominal_feat):
+        _fill_nominal_feature([], nominal_feat, ["a"])
+
+        assert nominal_feat.number_of_values == 0
+        assert nominal_feat.nominal_values == ["a"]
+
+    def test_nominal_values_sorted_from_schema(self, nominal_feat):
+        _fill_nominal_feature(["b", "a"], nominal_feat, ["b", "a"])
+
+        assert nominal_feat.nominal_values == ["a", "b"]
+
+    def test_class_distribution_sorted_string(self, nominal_feat):
+        _fill_nominal_feature(
+            ["yes", "no", "yes", "no", "yes"], nominal_feat, ["no", "yes"]
+        )
+
+        assert nominal_feat.class_distribution == "no:2,yes:3"
+
+    def test_input_not_mutated(self, nominal_feat):
+        data = ["a", None]
+        original = list(data)
+        _fill_nominal_feature(data, nominal_feat, ["a"])
 
         assert data == original

@@ -175,7 +175,7 @@ class OpenmlClient:
         whose message contains "No unprocessed" (Java catches the same string
         in ``ProcessDataset.fetchUnprocessed``)."""
         parsed = self._get_xml(f"data/unprocessed/{engine_id}/{mode}")
-        root = parsed.get("oml:data_unprocessed", {})
+        root = parsed.get("oml:data_unprocessed") or {}
         datasets = root.get("oml:dataset", [])
         if isinstance(datasets, dict):  # single-dataset edge case
             datasets = [datasets]
@@ -203,7 +203,7 @@ class OpenmlClient:
             path += f"/{priority_tag}"
         fields = {"qualities": ",".join(qualities)}
         parsed = self._post(path, fields=fields)
-        root = parsed.get("oml:data_unprocessed", {})
+        root = parsed.get("oml:data_unprocessed") or {}
         datasets = root.get("oml:dataset", [])
         if isinstance(datasets, dict):  # single-dataset edge case
             datasets = [datasets]
