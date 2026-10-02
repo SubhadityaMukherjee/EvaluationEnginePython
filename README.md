@@ -101,15 +101,17 @@ contain the test suite.
 
 ## Documentation
 
-API reference and usage docs are built with MkDocs:
+API reference and usage docs are built with [Zensical](https://zensical.org)
+(successor of MkDocs 1.x + Material, which our config stays compatible with):
 
 ```bash
-uv run mkdocs serve      # live preview at http://localhost:8000
-uv run mkdocs build      # static site in site/
+uv run zensical serve    # live preview at http://localhost:8000
+uv run zensical build    # static site in site/
 ```
 
 This README is the docs home page; the full API reference lives under
-`docs/api/` (see `mkdocs.yml`).
+`docs/api/` (see `mkdocs.yml`). The site is built and deployed to GitHub
+Pages by the `Docs` workflow on every push to `main`.
 
 ## Project layout
 
