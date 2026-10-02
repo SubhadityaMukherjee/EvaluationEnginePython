@@ -1,3 +1,17 @@
+"""Run-evaluation pipelines.
+
+``evaluate_run`` is the entry point: it dispatches on the OpenML
+``task_type_id`` to one of three evaluators —
+
+  * ``evaluate_batch``    — cross-validation / holdout / learning-curve
+                            tasks with a splits table (task types 1-3, 5, 6, 8),
+  * ``evaluate_stream``   — data-stream classification (task type 4),
+  * ``evaluate_survival`` — survival analysis (task type 7; count
+                            validation only).
+
+Each returns ``EvaluationScore`` objects (per-cell and/or global, see
+``src.runs.serialization`` for the upload format)."""
+
 from __future__ import annotations
 
 from enum import Enum

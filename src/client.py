@@ -10,6 +10,9 @@ Endpoints (all under ``base_url``, default ``https://www.openml.org/api/v1/``):
   * ``POST /data/qualities``       — ``data_qualities_upload``
   * ``POST /data/status/update``   — ``data_status_update``
   * ``GET  /data/unprocessed/{engine_id}/{mode}`` — ``data_unprocessed``
+  * ``POST /data/qualities/unprocessed/{engine_id}/{mode}[/feature][/{tag}]``
+                                    — ``data_qualities_unprocessed``
+  * ``GET  /data/{did}``           — ``data_get``
   * ``POST /run/evaluate``         — ``run_evaluate_upload``
   * ``GET  /evaluation/request/{engine_id}/{mode}/{n}[/{k}/{v}]`` — ``evaluation_request``
 

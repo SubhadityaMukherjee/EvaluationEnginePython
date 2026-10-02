@@ -1,0 +1,53 @@
+site_name: OpenML EvaluationEngine (Python)
+site_description: Python port of the OpenML EvaluationEngine
+repo_url: https://github.com/SubhadityaMukherjee/EvaluationEnginePython
+repo_name: SubhadityaMukherjee/EvaluationEnginePython
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+
+markdown_extensions:
+    - admonition
+    - pymdownx.highlight
+    - pymdownx.superfences
+    - tables
+
+plugins:
+  - search
+  - mkdocstrings
+
+nav:
+  - Home: index.md
+  - API Reference:
+      - CLI: api/main.md
+      - Client: api/client.md
+      - Evaluate run: api/evaluate_run.md
+      - Helpers: api/helpers.md
+      - Data loader: api/data_loader.md
+      - Models: api/models.md
+      - Exceptions: api/exceptions.md
+      - Runs:
+          - Evaluators: api/runs/evaluators.md
+          - Metrics: api/runs/metrics.md
+          - Prediction counter: api/runs/prediction_counter.md
+          - Serialization: api/runs/serialization.md
+      - Features:
+          - Loader: api/features/loader.md
+          - Module: api/features/module.md
+          - Serialization: api/features/serialization.md
+      - Qualities:
+          - Module: api/qualities/module.md
+          - Loader: api/qualities/loader.md
+          - Landmarkers: api/qualities/landmarkers.md
+          - Extract: api/qualities/extract.md
+          - Serialization: api/qualities/serialization.md
+      - Process dataset:
+          - Module: api/process_dataset/module.md
+          - Splitting: api/process_dataset/splitting.md
+          - Engine: api/process_dataset/engine.md
+          - Merge: api/process_dataset/merge.md
+          - ARFF: api/process_dataset/arff.md

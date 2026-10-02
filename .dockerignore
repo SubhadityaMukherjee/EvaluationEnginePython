@@ -20,6 +20,7 @@ __pycache__
 .coverage.*
 htmlcov
 *.egg-info
+tests
 
 # Editors / OS / agent tooling
 .idea
@@ -30,6 +31,12 @@ htmlcov
 # Build-context noise (don't ship the recipe into the image)
 Dockerfile
 .dockerignore
+.github
+
+# Documentation (built with MkDocs; not needed at runtime)
+docs
+mkdocs.yml
+site
 
 # Large dev-only trees not needed at runtime
 reference_and_sanity_checks

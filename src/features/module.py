@@ -1,3 +1,9 @@
+"""Per-column statistical filling for ``Feature`` objects.
+
+``_fill_numeric_feature`` / ``_fill_nominal_feature`` populate the count /
+min-max / class-distribution fields the OpenML data-features XML expects
+from one raw column of values (missing values are ``None``)."""
+
 from collections import Counter
 import numpy as np
 

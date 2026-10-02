@@ -12,7 +12,7 @@ from src.models import DataFormat, DatasetDownloadInfo
 
 # Default API base (production). CLI paths always pass the server resolved
 # from ``OpenmlClient(test=...)``; this default only affects ad-hoc callers
-# (notebooks, ``testing.py``) that don't supply one.
+# (notebooks, scripts) that don't supply one.
 DEFAULT_API_BASE = "https://www.openml.org/api/v1/"
 
 
@@ -311,7 +311,8 @@ def load_arff_to_df(path: str) -> pd.DataFrame:
     """Load any ARFF file into a DataFrame, preserving column order.
 
     Nominal columns become ``pd.Categorical`` with the declared categories,
-    matching what ``src.folds.load_dataset`` does for dataset ARFFs.
+    matching what :func:`src.process_dataset.module.load_dataset` does for
+    dataset ARFFs.
     """
     with open(path, "r", encoding="utf-8", errors="replace") as f:
         payload = arff.load(f)

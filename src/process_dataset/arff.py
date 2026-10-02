@@ -1,3 +1,6 @@
+"""Serialize splits DataFrames (see ``src.process_dataset.splitting``) to
+the OpenML splits ARFF format."""
+
 from __future__ import annotations
 
 import arff

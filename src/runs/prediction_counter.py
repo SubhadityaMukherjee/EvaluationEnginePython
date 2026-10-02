@@ -1,3 +1,10 @@
+"""Fold-aware prediction count validation — port of Weka's
+``FoldsPredictionCounter`` (used by EvaluateRun).
+
+Indexes a task's splits table by ``(repeat, fold, sample)`` and checks
+that a predictions file contains exactly the expected TEST row ids in
+every cell."""
+
 from __future__ import annotations
 
 import numpy as np

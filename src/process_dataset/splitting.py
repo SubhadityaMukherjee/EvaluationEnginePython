@@ -1,3 +1,11 @@
+"""Splits-table generators — ports of Weka's ``CrossValidation`` /
+``LeaveOneOut`` / ``TestOnTrainingData`` / ``LearningCurve`` /
+``Holdout`` / ``HoldoutOrdered`` split producers.
+
+Every generator returns a DataFrame with the Java ``ArffMapping`` schema:
+``type`` (TRAIN/TEST), ``rowid`` (original 0-based row), ``repeat``,
+``fold``, plus ``sample`` for learning-curve tasks only."""
+
 from __future__ import annotations
 
 from typing import Optional

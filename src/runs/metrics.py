@@ -1,3 +1,10 @@
+"""Metric computation for run evaluation.
+
+``regression_metrics`` and ``classification_metrics`` mirror the metric
+set the OpenML server stores (Weka's ``Evaluation`` vocabulary: prior
+errors, relative errors, kappa, KB relative information, ...). Golden
+values are pinned by ``tests/runs/test_metrics.py``."""
+
 from __future__ import annotations
 
 from typing import Iterable, Optional

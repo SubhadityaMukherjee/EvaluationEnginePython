@@ -1,5 +1,5 @@
 """
-CLI dispatcher mirroring Main.java. Run as ``python -m main --help``.
+CLI dispatcher mirroring Main.java. Run as ``python -m src.main --help``.
 
 Supported functions (``-f`` / ``--function``):
   * ``evaluate_run``         — port of EvaluateRun; needs ``--id``.
