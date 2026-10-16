@@ -33,7 +33,7 @@ from src.helpers import get_data_and_meta_information_from_did
 from src.models import DataFormat, DataQuality, DatasetDownloadInfo, Quality
 from src.qualities.landmarkers import compute_all_landmarkers, expected_landmarker_ids
 from src.qualities.loader import load_qualities
-from src.qualities.module import build_xy
+from src.qualities.module import build_xy, find_target_index
 from src.constants import EVALUATION_ENGINE_ID
 
 # The 19 SimpleMetaFeatures IDs (Java's SimpleMetaFeatures.ids). Used as the
@@ -126,15 +126,20 @@ class ExtractFeatures:
     ) -> None:
         """Compute all landmarkers and append to ``data_quality.qualities``.
 
-        Silent on failure: if X/y can't be built (no target, unparseable),
-        we leave the base qualities intact and skip — Java's GenericLandmarker
-        returns null per-landmarker on exception; here the whole landmarker
-        pass is all-or-nothing since they share one X/y."""
+        Skipped when no target column resolves: every landmarker (kNN1N,
+        NaiveBayes, ...) is a supervised classifier, so with no
+        ``default_target_attribute`` there is nothing to cross-validate.
+        Silent on other failures: if X/y can't be built (unparseable data),
+        we leave the base qualities intact and skip — Java's
+        GenericLandmarker returns null per-landmarker on exception; here the
+        whole landmarker pass is all-or-nothing since they share one X/y."""
         from src.helpers import normalize_target_names
 
         try:
             attributes, rows = DataLoader(self.dataset_format).load(info)
             target_names = normalize_target_names(info.default_target_attribute)
+            if find_target_index(attributes, target_names) is None:
+                return
             X, y = build_xy(attributes, rows, target_names)
             landmark_values = compute_all_landmarkers(X, y)
         except Exception:  # noqa: BLE001 — Java parity: landmarkers fail soft

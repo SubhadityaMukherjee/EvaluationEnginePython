@@ -89,15 +89,36 @@ class TestLoadQualities:
         assert result.error == "file gone"
         assert result.qualities == []
 
-    def test_build_xy_failure_is_captured_as_error(
+    def test_no_target_keeps_base_qualities_and_skips_mfe(
         self, dataset, mock_loader, mock_mfe
     ):
-        # no target attribute anywhere → build_xy raises ValueError
+        # no default_target_attribute → supervised extraction is skipped
+        # explicitly; target-independent base qualities survive
         dataset.default_target_attribute = None
 
         result = load_qualities(dataset)
 
-        assert result.error == (
-            "Target feature not found among dataset attributes "
-            "(default_target_attribute=set())."
+        assert result.error is None
+        by_name = {q.name: q.value for q in result.qualities}
+        assert by_name["NumberOfInstances"] == 3.0
+        assert by_name["NumberOfFeatures"] == 2.0
+        assert by_name["NumberOfClasses"] is None
+        assert by_name["AutoCorrelation"] is None
+        assert not any(name.startswith("mfe_") for name in by_name)
+        mfe_cls, _ = mock_mfe
+        mfe_cls.assert_not_called()
+
+    def test_unknown_target_name_skips_mfe(
+        self, dataset, mock_loader, mock_mfe
+    ):
+        # a target that matches no attribute is as good as no target
+        dataset.default_target_attribute = "not_a_column"
+
+        result = load_qualities(dataset)
+
+        assert result.error is None
+        assert not any(
+            q.name.startswith("mfe_") for q in result.qualities
         )
+        mfe_cls, _ = mock_mfe
+        mfe_cls.assert_not_called()

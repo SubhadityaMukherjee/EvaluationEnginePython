@@ -1,7 +1,11 @@
 import numpy as np
 import pytest
 
-from src.qualities.module import build_xy, compute_dataset_qualities
+from src.qualities.module import (
+    build_xy,
+    compute_dataset_qualities,
+    find_target_index,
+)
 
 ATTRIBUTES = [
     ("outlook", ["sunny", "overcast", "rainy"]),
@@ -20,6 +24,17 @@ ROWS = [
 
 def qualities_by_name(qualities):
     return {q.name: q.value for q in qualities}
+
+
+class TestFindTargetIndex:
+    def test_first_matching_attribute_wins(self):
+        assert find_target_index(ATTRIBUTES, {"play"}) == 2
+
+    def test_no_target_names_is_none(self):
+        assert find_target_index(ATTRIBUTES, set()) is None
+
+    def test_unknown_target_name_is_none(self):
+        assert find_target_index(ATTRIBUTES, {"not_a_column"}) is None
 
 
 class TestComputeDatasetQualities:

@@ -61,6 +61,7 @@ class TestProcess:
     def test_all_set_appends_landmarkers(
         self, client, mock_download, mock_load_qualities, mocker
     ):
+        mock_download.return_value.default_target_attribute = "x"
         loader = MagicMock()
         loader.load.return_value = ([("x", "NUMERIC")], [(1.0,), (2.0,)])
         mocker.patch("src.qualities.extract.DataLoader", return_value=loader)
@@ -79,6 +80,25 @@ class TestProcess:
         assert by_name["kNN1NAUC"] == 0.9
         assert by_name["kNN1NErrRate"] == 0.1
 
+    def test_all_set_skips_landmarkers_without_target(
+        self, client, mock_download, mock_load_qualities, mocker
+    ):
+        # no default_target_attribute → landmarkers (kNN etc.) are undefined
+        # and must be skipped before any X/y work happens
+        mock_download.return_value.default_target_attribute = None
+        loader = MagicMock()
+        loader.load.return_value = ([("x", "NUMERIC")], [(1.0,), (2.0,)])
+        mocker.patch("src.qualities.extract.DataLoader", return_value=loader)
+        build_xy = mocker.patch("src.qualities.extract.build_xy")
+        landmarks = mocker.patch("src.qualities.extract.compute_all_landmarkers")
+
+        result = ExtractFeatures(client, characterizer_set="all").process(61)
+
+        build_xy.assert_not_called()
+        landmarks.assert_not_called()
+        assert result.error is None
+        assert [q.name for q in result.qualities] == ["NumberOfInstances"]
+
     def test_all_set_skips_landmarkers_on_data_quality_error(
         self, client, mock_download, mock_load_qualities, mocker
     ):
@@ -92,13 +112,15 @@ class TestProcess:
     def test_all_set_landmarker_failure_is_silent(
         self, client, mock_download, mock_load_qualities, mocker
     ):
-        # the loader must succeed so the failure is genuinely build_xy's
+        # loader succeeds and a target resolves, so the failure is
+        # genuinely build_xy's (e.g. unparseable data), not a missing target
+        mock_download.return_value.default_target_attribute = "x"
         loader = MagicMock()
         loader.load.return_value = ([("x", "NUMERIC")], [(1.0,), (2.0,)])
         mocker.patch("src.qualities.extract.DataLoader", return_value=loader)
         build_xy = mocker.patch(
             "src.qualities.extract.build_xy",
-            side_effect=ValueError("no target"),
+            side_effect=ValueError("unparseable column"),
         )
 
         result = ExtractFeatures(client, characterizer_set="all").process(61)

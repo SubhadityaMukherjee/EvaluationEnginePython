@@ -12,16 +12,27 @@ def _pct(num: int, den: int) -> float | None:
     return num / den * 100
 
 
+def find_target_index(attributes, target_names: set[str]) -> int | None:
+    """Index of the first attribute whose name is in ``target_names``.
+
+    ``None`` means the dataset has no usable target: either no
+    ``default_target_attribute`` was set, or its name(s) match no attribute.
+    Callers use this to decide up front whether supervised extraction
+    (pymfe, landmarkers) is possible at all.
+    """
+    attr_names = [a[0] for a in attributes]
+    target_idxs = [i for i, n in enumerate(attr_names) if n in target_names]
+    return target_idxs[0] if target_idxs else None
+
+
 def compute_dataset_qualities(
     attributes,
     rows,
     target_names: set[str],
 ) -> list[Quality]:
-    attr_names = [a[0] for a in attributes]
     attr_types = [a[1] for a in attributes]
 
-    target_idxs = [i for i, n in enumerate(attr_names) if n in target_names]
-    target_idx = target_idxs[0] if target_idxs else None
+    target_idx = find_target_index(attributes, target_names)
 
     n_instances = len(rows)
     n_features = len(attributes)
@@ -209,15 +220,12 @@ def build_xy(
 ) -> tuple[np.ndarray, np.ndarray]:
     attr_names = [a[0] for a in attributes]
 
-    target_idxs = [i for i, n in enumerate(attr_names) if n in target_names]
-
-    if not target_idxs:
+    target_idx = find_target_index(attributes, target_names)
+    if target_idx is None:
         raise ValueError(
             f"Target feature not found among dataset attributes "
             f"(default_target_attribute={target_names!r})."
         )
-
-    target_idx = target_idxs[0]
 
     arr = np.array(rows, dtype=object)
 

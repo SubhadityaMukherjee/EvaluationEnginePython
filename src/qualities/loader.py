@@ -11,7 +11,11 @@ from pymfe.mfe import MFE
 from src.data_loader import DataLoader
 from src.helpers import normalize_target_names
 from src.models import DataFormat, DataQuality, DatasetDownloadInfo, Quality
-from src.qualities.module import build_xy, compute_dataset_qualities
+from src.qualities.module import (
+    build_xy,
+    compute_dataset_qualities,
+    find_target_index,
+)
 
 _DEFAULT_MFE_GROUPS = ("general", "statistical", "info-theory")
 
@@ -49,6 +53,17 @@ def load_qualities(
             rows,
             target_names,
         )
+
+        # Supervised extraction (pymfe, and landmarkers upstream) needs a
+        # target column. Without one, skip it explicitly — the
+        # target-dependent qualities are already None in ``qualities`` —
+        # rather than letting build_xy raise into the except below.
+        if find_target_index(attributes, target_names) is None:
+            return DataQuality(
+                did=did,
+                evaluation_engine_id=evaluation_engine_id,
+                qualities=qualities,
+            )
 
         X, y = build_xy(attributes, rows, target_names)
 
