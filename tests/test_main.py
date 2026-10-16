@@ -75,6 +75,31 @@ class TestDispatch:
             main(["-f", function])
 
 
+class TestDotenvLoading:
+    def test_main_reads_env_file_from_cwd(self, tmp_path, monkeypatch):
+        import os
+
+        monkeypatch.delenv("OPENML_TEST_API_KEY", raising=False)
+        (tmp_path / ".env").write_text("OPENML_TEST_API_KEY=from-file\n")
+        monkeypatch.chdir(tmp_path)
+
+        # dispatch fails (rc 1), but only after load_dotenv has run
+        assert main(["-f", "warp_drive"]) == 1
+
+        assert os.environ["OPENML_TEST_API_KEY"] == "from-file"
+
+    def test_real_env_beats_env_file(self, tmp_path, monkeypatch):
+        import os
+
+        monkeypatch.setenv("OPENML_TEST_API_KEY", "from-shell")
+        (tmp_path / ".env").write_text("OPENML_TEST_API_KEY=from-file\n")
+        monkeypatch.chdir(tmp_path)
+
+        main(["-f", "warp_drive"])
+
+        assert os.environ["OPENML_TEST_API_KEY"] == "from-shell"
+
+
 class TestEvaluateRunCommand:
     @pytest.fixture
     def mock_engine(self, mocker):

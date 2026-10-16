@@ -33,6 +33,8 @@ import argparse
 import sys
 from collections.abc import Callable, Sequence
 
+from dotenv import find_dotenv, load_dotenv
+
 from src.runs import SUPPORTED_TASK_TYPES_EVALUATION
 
 FOLD_GENERATION_SEED = 0
@@ -143,9 +145,9 @@ def _build_parser() -> argparse.ArgumentParser:
         "-test",
         "--test",
         action="store_true",
-        help="Target test.openml.org instead of production (default api key "
-        "'normaluser'; used by process_dataset/evaluate_run/extract_features/"
-        "merge_datasets).",
+        help="Target test.openml.org instead of production (API key from "
+        "OPENML_TEST_API_KEY, falling back to OPENML_API_KEY; used by "
+        "process_dataset/evaluate_run/extract_features/merge_datasets).",
     )
 
     p.add_argument(
@@ -391,6 +393,12 @@ _DISPATCH: dict[str, Callable[[argparse.Namespace], None]] = {
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    # Load a .env file from the working directory (walking up) before any
+    # OpenmlClient is constructed. Existing environment variables win —
+    # ``override`` defaults to False — so the documented resolution order
+    # (explicit key > OPENML_TEST_API_KEY > OPENML_API_KEY) is unaffected.
+    load_dotenv(find_dotenv(usecwd=True))
+
     args = _build_parser().parse_args(argv)
 
     handler = _DISPATCH.get(args.function)

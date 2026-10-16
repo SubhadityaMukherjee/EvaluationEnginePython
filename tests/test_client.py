@@ -3,7 +3,6 @@ import pytest
 from src.client import (
     PROD_BASE_URL,
     TEST_BASE_URL,
-    TEST_DEFAULT_API_KEY,
     OpenmlClient,
 )
 from src.exceptions import OpenmlApiError, OpenmlConfigError
@@ -25,16 +24,52 @@ def ok_response(body: bytes):
 
 
 class TestConstructor:
-    def test_test_server_defaults(self):
+    def test_test_server_reads_test_env_key(self, monkeypatch):
+        monkeypatch.delenv("OPENML_API_KEY", raising=False)
+        monkeypatch.setenv("OPENML_TEST_API_KEY", "write-key")
+
         client = OpenmlClient(test=True)
 
         assert client.base_url == TEST_BASE_URL
-        assert client.api_key == TEST_DEFAULT_API_KEY
+        assert client.api_key == "write-key"
+
+    def test_test_server_without_any_key_raises(self, monkeypatch):
+        monkeypatch.delenv("OPENML_API_KEY", raising=False)
+        monkeypatch.delenv("OPENML_TEST_API_KEY", raising=False)
+
+        with pytest.raises(OpenmlConfigError, match="OPENML_TEST_API_KEY"):
+            OpenmlClient(test=True)
+
+    def test_test_env_key_wins_over_prod_env_key(self, monkeypatch):
+        # documented resolution order: explicit key > OPENML_TEST_API_KEY
+        # (test server) > OPENML_API_KEY
+        monkeypatch.setenv("OPENML_API_KEY", "prod-key")
+        monkeypatch.setenv("OPENML_TEST_API_KEY", "write-key")
+
+        client = OpenmlClient(test=True)
+
+        assert client.api_key == "write-key"
+
+    def test_test_server_falls_back_to_prod_env_key(self, monkeypatch):
+        monkeypatch.delenv("OPENML_TEST_API_KEY", raising=False)
+        monkeypatch.setenv("OPENML_API_KEY", "shared-key")
+
+        client = OpenmlClient(test=True)
+
+        assert client.api_key == "shared-key"
 
     def test_prod_without_key_raises(self, monkeypatch):
         monkeypatch.delenv("OPENML_API_KEY", raising=False)
+        monkeypatch.delenv("OPENML_TEST_API_KEY", raising=False)
 
-        with pytest.raises(OpenmlConfigError, match="API key"):
+        with pytest.raises(OpenmlConfigError, match="OPENML_API_KEY"):
+            OpenmlClient()
+
+    def test_prod_ignores_test_env_key(self, monkeypatch):
+        monkeypatch.delenv("OPENML_API_KEY", raising=False)
+        monkeypatch.setenv("OPENML_TEST_API_KEY", "write-key")
+
+        with pytest.raises(OpenmlConfigError, match="OPENML_API_KEY"):
             OpenmlClient()
 
     def test_prod_reads_env_key(self, monkeypatch):
@@ -47,10 +82,12 @@ class TestConstructor:
 
     def test_explicit_key_wins_over_env(self, monkeypatch):
         monkeypatch.setenv("OPENML_API_KEY", "env-key")
+        monkeypatch.setenv("OPENML_TEST_API_KEY", "write-key")
 
-        client = OpenmlClient(api_key="explicit-key")
-
-        assert client.api_key == "explicit-key"
+        assert OpenmlClient(api_key="explicit-key").api_key == "explicit-key"
+        assert OpenmlClient(test=True, api_key="explicit-key").api_key == (
+            "explicit-key"
+        )
 
     def test_base_url_gets_trailing_slash(self, monkeypatch):
         monkeypatch.setenv("OPENML_API_KEY", "k")
@@ -58,14 +95,6 @@ class TestConstructor:
         client = OpenmlClient(base_url="https://example.org/api/v1")
 
         assert client.base_url == "https://example.org/api/v1/"
-
-    def test_test_server_default_wins_over_env(self, monkeypatch):
-        # documented resolution order: explicit key > test default > env var
-        monkeypatch.setenv("OPENML_API_KEY", "my-key")
-
-        client = OpenmlClient(test=True)
-
-        assert client.api_key == TEST_DEFAULT_API_KEY
 
 
 class TestParse:

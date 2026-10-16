@@ -30,8 +30,20 @@ uv sync                # create .venv and install dependencies
 uv run pytest          # run the test suite (offline; ~400 tests)
 ```
 
-API authentication: set `OPENML_API_KEY` in the environment, or rely on the
-test server's default demo key when using `--test` (below).
+API authentication is via environment variables:
+
+| Variable              | Used for                                                        |
+|-----------------------|-----------------------------------------------------------------|
+| `OPENML_API_KEY`      | API key for production (`www.openml.org`) requests              |
+| `OPENML_TEST_API_KEY` | API key for `--test` (`test.openml.org`) requests; falls back to `OPENML_API_KEY` when unset |
+
+No keys are bundled with the code. For the test server you can export its
+public demo key: `export OPENML_TEST_API_KEY=normaluser`. Resolution order:
+an explicit `api_key` argument beats `OPENML_TEST_API_KEY`, which beats
+`OPENML_API_KEY`; a missing key fails with a configuration error.
+
+The CLI also reads a git-ignored `.env` file from the working directory
+(see `.env.example`); real environment variables take precedence over it.
 
 ## CLI usage
 
@@ -39,7 +51,8 @@ Entry point: `python -m src.main` (`-f/--function` is required; run with
 `--help` for all flags).
 
 ```bash
-# Evaluate one run on the test server (test.openml.org, demo API key)
+# Evaluate one run on the test server (test.openml.org; needs
+# OPENML_TEST_API_KEY, e.g. the public demo key "normaluser")
 uv run python -m src.main -f evaluate_run -id 1 -test
 
 # Same, but only compute and print the evaluation XML without uploading
@@ -67,7 +80,7 @@ Useful flags:
 
 | Flag | Meaning |
 |------|---------|
-| `-test`          | Target `test.openml.org` (default key `normaluser`) instead of production |
+| `-test`          | Target `test.openml.org` instead of production (key from `OPENML_TEST_API_KEY`, falling back to `OPENML_API_KEY`) |
 | `-id`            | Dataset / run / task id, depending on the function |
 | `-df`            | Dataset file format: `arff` (default) or `parquet` |
 | `-no-upload`     | Compute locally, skip uploading (evaluate_run prints the XML) |
@@ -85,8 +98,9 @@ docker build -t evaluation-engine .
 # Prints usage
 docker run --rm evaluation-engine
 
-# Evaluate a run on the test server
-docker run --rm evaluation-engine -f evaluate_run -id 1 -test
+# Evaluate a run on the test server (demo key passed via the environment)
+docker run --rm -e OPENML_TEST_API_KEY evaluation-engine \
+    -f evaluate_run -id 1 -test
 
 # Dry run (no upload), mounting an output directory for generated files
 docker run --rm -v "$PWD/out:/out" evaluation-engine \

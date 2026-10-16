@@ -1,9 +1,13 @@
 """Thin REST client for the OpenML API — Python port of the subset of
 ``org.openml.apiconnector.io.OpenmlConnector`` that ``ProcessDataset`` uses.
 
-Auth: the API key is read from the ``OPENML_API_KEY`` environment variable
-(Java's connector holds it as a field on the instance; here we read it in the
-constructor so the client is explicit about what it's using).
+Auth: the API key comes from the environment (Java's connector holds it as
+a field on the instance; here we read it in the constructor so the client
+is explicit about what it's using). Resolution order: explicit ``api_key``
+argument, then ``OPENML_TEST_API_KEY`` (only when ``test=True``), then
+``OPENML_API_KEY``. The test server's public demo key — Java's
+``client_write_test`` connector — is no longer hardcoded; export it as
+``OPENML_TEST_API_KEY`` to run against ``--test`` without a personal key.
 
 Endpoints (all under ``base_url``, default ``https://www.openml.org/api/v1/``):
   * ``POST /data/features``        — ``data_features_upload``
@@ -40,18 +44,23 @@ from src.runs import RunEvaluation, run_evaluation_to_xml
 
 PROD_BASE_URL = "https://www.openml.org/api/v1/"
 TEST_BASE_URL = "https://test.openml.org/api/v1/"
-# Public demo key shipped with the openml test server (see openml-python's
-# ``_TEST_SERVERS`` table). Lets ``OpenmlClient(test=True)`` work without
-# ``OPENML_API_KEY`` set. Production has no default — callers must supply one.
-TEST_DEFAULT_API_KEY = "normaluser"
+# API-key env vars, consulted in resolution order (see the class docstring
+# below): explicit api_key argument > OPENML_TEST_API_KEY (test server only)
+# > OPENML_API_KEY. Java hardcoded its test-user connectors' keys
+# (client_admin_test/client_write_test/client_read_test); the Python port
+# initially shipped the write user's demo key ("normaluser") as a fallback —
+# both now require the key to come from the environment.
+PROD_API_KEY_ENV_VAR = "OPENML_API_KEY"
+TEST_API_KEY_ENV_VAR = "OPENML_TEST_API_KEY"
 
 
 class OpenmlClient:
     """Stateful REST client — port of the ``OpenmlConnector`` methods used by
     ``ProcessDataset``. Construct with an explicit ``api_key`` or let it fall
-    back to ``OPENML_API_KEY``; the key is sent as a multipart form field on
-    POSTs (Java: ``entity.addPart("api_key", ...)``) and as ``?api_key=`` on
-    GETs (Java: ``doApiGetRequest``)."""
+    back to ``OPENML_TEST_API_KEY`` (test server) / ``OPENML_API_KEY``; the
+    key is sent as a multipart form field on POSTs (Java:
+    ``entity.addPart("api_key", ...)``) and as ``?api_key=`` on GETs
+    (Java: ``doApiGetRequest``)."""
 
     def __init__(
         self,
@@ -64,18 +73,23 @@ class OpenmlClient:
         if base_url is None:
             base_url = TEST_BASE_URL if test else PROD_BASE_URL
 
-        # Key resolution: explicit api_key > test-server default > env var.
-        # The test server's "normaluser" demo key lets ``--test`` work with no
-        # env setup; production never falls back, so a missing key fails loud.
+        # Key resolution: explicit api_key > OPENML_TEST_API_KEY (test
+        # server only) > OPENML_API_KEY. Neither server has a default key;
+        # a missing key fails loud with a hint at the right env vars.
         resolved = api_key
         if resolved is None and test:
-            resolved = TEST_DEFAULT_API_KEY
+            resolved = os.environ.get(TEST_API_KEY_ENV_VAR)
         if resolved is None:
-            resolved = os.environ.get("OPENML_API_KEY")
+            resolved = os.environ.get(PROD_API_KEY_ENV_VAR)
         if not resolved:
+            env_hint = (
+                f"{TEST_API_KEY_ENV_VAR} or {PROD_API_KEY_ENV_VAR}"
+                if test
+                else PROD_API_KEY_ENV_VAR
+            )
             raise OpenmlConfigError(
-                "OpenML API key not set. Pass api_key=... when constructing the "
-                "client or set the OPENML_API_KEY environment variable."
+                "OpenML API key not set. Pass api_key=... when constructing "
+                f"the client or set the {env_hint} environment variable(s)."
             )
         self.api_key = resolved
         self.base_url = base_url if base_url.endswith("/") else base_url + "/"
